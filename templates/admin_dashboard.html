@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #FCA311 0%, #e6940f 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    .stats-card h3 {
+        font-size: 2rem;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h2 class="mb-4"><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h2>
+    
+    <!-- Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6>Total Orders</h6>
+                <h3 id="totalOrders">0</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6>Pending Assignment</h6>
+                <h3 id="pendingOrders">0</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6>In Transit</h6>
+                <h3 id="inTransitOrders">0</h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6>Total Revenue</h6>
+                <h3 id="totalRevenue">KES 0</h3>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Orders Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-list"></i> All Orders</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Tracking Code</th>
+                            <th>Customer</th>
+                            <th>Driver</th>
+                            <th>Status</th>
+                            <th>Price</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTable">
+                        <tr>
+                            <td colspan="7" class="text-center">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Driver Modal -->
+<div class="modal fade" id="assignDriverModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Assign Driver</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="assignOrderId">
+                <div class="mb-3">
+                    <label class="form-label">Select Driver</label>
+                    <select class="form-select" id="driverSelect">
+                        <option value="">Loading drivers...</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary w-100" onclick="assignDriver()">Assign Driver</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const API_BASE = '/api';
+    
+    async function loadOrders() {
+        try {
+            const response = await fetch(`${API_BASE}/orders/`, {
+                credentials: 'include'
+            });
+            const orders = await response.json();
+            
+            // Update stats
+            document.getElementById('totalOrders').textContent = orders.length;
+            document.getElementById('pendingOrders').textContent = orders.filter(o => o.status === 'pending_assignment').length;
+            document.getElementById('inTransitOrders').textContent = orders.filter(o => o.status === 'in_transit' || o.status === 'picked_up').length;
+            
+            const totalRevenue = orders
+                .filter(o => o.payment && o.payment.status === 'completed')
+                .reduce((sum, o) => sum + parseFloat(o.price), 0);
+            document.getElementById('totalRevenue').textContent = `KES ${totalRevenue.toFixed(0)}`;
+            
+            // Update table
+            const tbody = document.getElementById('ordersTable');
+            if (orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No orders found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = orders.map(order => `
+                <tr>
+                    <td><a href="/track/${order.tracking_code}/" class="text-primary">${order.tracking_code}</a></td>
+                    <td>${order.customer?.full_name || 'N/A'}</td>
+                    <td>${order.driver?.full_name || 'Not Assigned'}</td>
+                    <td><span class="badge bg-secondary">${order.status.replace('_', ' ').toUpperCase()}</span></td>
+                    <td>KES ${order.price}</td>
+                    <td>${new Date(order.created_at).toLocaleDateString()}</td>
+                    <td>
+                        ${order.status === 'pending_assignment' ? 
+                            `<button class="btn btn-sm btn-primary" onclick="openAssignModal(${order.id})">Assign Driver</button>` :
+                            `<a href="/track/${order.tracking_code}/" class="btn btn-sm btn-outline-primary">View</a>`
+                        }
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading orders:', error);
+        }
+    }
+    
+    async function loadAvailableDrivers() {
+        try {
+            const response = await fetch(`${API_BASE}/drivers/available/`, {
+                credentials: 'include'
+            });
+            const drivers = await response.json();
+            
+            const select = document.getElementById('driverSelect');
+            select.innerHTML = '<option value="">Select a driver</option>' +
+                drivers.map(driver => 
+                    `<option value="${driver.id}">${driver.full_name} - ${driver.phone}</option>`
+                ).join('');
+        } catch (error) {
+            console.error('Error loading drivers:', error);
+        }
+    }
+    
+    function openAssignModal(orderId) {
+        document.getElementById('assignOrderId').value = orderId;
+        loadAvailableDrivers();
+        new bootstrap.Modal(document.getElementById('assignDriverModal')).show();
+    }
+    
+    async function assignDriver() {
+        const orderId = document.getElementById('assignOrderId').value;
+        const driverId = document.getElementById('driverSelect').value;
+        
+        if (!driverId) {
+            alert('Please select a driver');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE}/drivers/assign/${orderId}/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
+                body: JSON.stringify({ driver_id: parseInt(driverId) })
+            });
+            
+            const result = await response.json();
+            if (response.ok) {
+                alert('Driver assigned successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('assignDriverModal')).hide();
+                loadOrders();
+            } else {
+                alert(result.error || 'Failed to assign driver');
+            }
+        } catch (error) {
+            alert('An error occurred. Please try again.');
+        }
+    }
+    
+    loadOrders();
+</script>
+{% endblock %}
+

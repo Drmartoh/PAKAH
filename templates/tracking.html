@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<style>
+    .tracking-timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+    .tracking-timeline::before {
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #ddd;
+    }
+    .timeline-item {
+        position: relative;
+        padding-bottom: 2rem;
+    }
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -1.75rem;
+        top: 0.25rem;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #FCA311;
+        border: 2px solid white;
+        box-shadow: 0 0 0 2px #FCA311;
+    }
+    .timeline-item.completed::before {
+        background: #28a745;
+        box-shadow: 0 0 0 2px #28a745;
+    }
+    .map-container {
+        height: 400px;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="fas fa-search"></i> Track Order</h2>
+            <p class="text-muted">Tracking Code: <strong id="trackingCode"></strong></p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Order Details</h5>
+                </div>
+                <div class="card-body" id="orderDetails">
+                    Loading...
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Tracking Timeline</h5>
+                </div>
+                <div class="card-body">
+                    <div class="tracking-timeline" id="trackingTimeline">
+                        Loading...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Live Map</h5>
+                </div>
+                <div class="card-body">
+                    <div id="map" class="map-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY|default:'' }}&libraries=places,geometry,directions"></script>
+<script>
+    const API_BASE = '/api';
+    const trackingCode = window.location.pathname.split('/').pop();
+    let map;
+    
+    document.getElementById('trackingCode').textContent = trackingCode;
+    
+    function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: -1.2921, lng: 36.8219 },
+            zoom: 12
+        });
+    }
+    
+    async function loadOrder() {
+        try {
+            const response = await fetch(`${API_BASE}/orders/tracking/${trackingCode}/`);
+            const order = await response.json();
+            
+            // Order details
+            document.getElementById('orderDetails').innerHTML = `
+                <p><strong>Status:</strong> <span class="badge bg-secondary">${order.status.replace('_', ' ').toUpperCase()}</span></p>
+                <p><strong>Price:</strong> KES ${order.price}</p>
+                <hr>
+                <h6>Pickup</h6>
+                <p><strong>Name:</strong> ${order.pickup_name}</p>
+                <p><strong>Address:</strong> ${order.pickup_address}</p>
+                <hr>
+                <h6>Delivery</h6>
+                <p><strong>Name:</strong> ${order.delivery_name}</p>
+                <p><strong>Address:</strong> ${order.delivery_address}</p>
+            `;
+            
+            // Tracking timeline
+            const statuses = [
+                { key: 'pending_payment', label: 'Payment Pending' },
+                { key: 'pending_assignment', label: 'Awaiting Driver Assignment' },
+                { key: 'assigned', label: 'Driver Assigned' },
+                { key: 'accepted', label: 'Driver Accepted' },
+                { key: 'picked_up', label: 'Picked Up' },
+                { key: 'in_transit', label: 'In Transit' },
+                { key: 'delivered', label: 'Delivered' }
+            ];
+            
+            const currentStatusIndex = statuses.findIndex(s => s.key === order.status);
+            const timeline = statuses.map((status, index) => {
+                const isCompleted = index <= currentStatusIndex;
+                const log = order.tracking_logs?.find(l => l.status === status.key);
+                return `
+                    <div class="timeline-item ${isCompleted ? 'completed' : ''}">
+                        <h6>${status.label}</h6>
+                        ${log ? `<p class="text-muted small">${new Date(log.created_at).toLocaleString()}</p>` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('trackingTimeline').innerHTML = timeline;
+            
+            // Update map
+            if (order.pickup_latitude && order.pickup_longitude && order.delivery_latitude && order.delivery_longitude) {
+                const pickup = { lat: parseFloat(order.pickup_latitude), lng: parseFloat(order.pickup_longitude) };
+                const delivery = { lat: parseFloat(order.delivery_latitude), lng: parseFloat(order.delivery_longitude) };
+                
+                map.setCenter(pickup);
+                
+                new google.maps.Marker({
+                    position: pickup,
+                    map: map,
+                    label: 'P',
+                    title: 'Pickup Location'
+                });
+                
+                new google.maps.Marker({
+                    position: delivery,
+                    map: map,
+                    label: 'D',
+                    title: 'Delivery Location'
+                });
+                
+                const directionsService = new google.maps.DirectionsService();
+                const directionsRenderer = new google.maps.DirectionsRenderer({ map: map });
+                
+                directionsService.route({
+                    origin: pickup,
+                    destination: delivery,
+                    travelMode: 'DRIVING'
+                }, (result, status) => {
+                    if (status === 'OK') {
+                        directionsRenderer.setDirections(result);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error loading order:', error);
+            document.getElementById('orderDetails').innerHTML = '<p class="text-danger">Order not found</p>';
+        }
+    }
+    
+    if (typeof google !== 'undefined') {
+        initMap();
+    } else {
+        window.addEventListener('load', initMap);
+    }
+    loadOrder();
+    
+    // Refresh every 30 seconds
+    setInterval(loadOrder, 30000);
+</script>
+{% endblock %}
+

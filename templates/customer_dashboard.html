@@ -1,0 +1,709 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<style>
+    .dashboard-header {
+        background: linear-gradient(135deg, #FCA311 0%, #e6940f 100%);
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .dashboard-title {
+        color: white;
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    
+    .new-order-btn {
+        background: #000;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 50px;
+        border: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    .new-order-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        background: #1a1a1a;
+        color: white;
+    }
+    
+    .order-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        border-left: 4px solid #FCA311;
+    }
+    
+    .order-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.12);
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1.2rem;
+        border-radius: 25px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    
+    .status-pending_payment { background-color: #ffc107; color: #000; }
+    .status-pending_assignment { background-color: #17a2b8; color: #fff; }
+    .status-assigned { background-color: #6c757d; color: #fff; }
+    .status-accepted { background-color: #007bff; color: #fff; }
+    .status-picked_up { background-color: #28a745; color: #fff; }
+    .status-in_transit { background-color: #20c997; color: #fff; }
+    .status-delivered { background-color: #28a745; color: #fff; }
+    
+    .tracking-code {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #FCA311;
+        text-decoration: none;
+    }
+    
+    .tracking-code:hover {
+        color: #e6940f;
+        text-decoration: underline;
+    }
+    
+    .order-price {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #000;
+    }
+    
+    .action-btn {
+        padding: 0.5rem 1.5rem;
+        border-radius: 25px;
+        font-weight: 600;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    
+    .action-btn-primary {
+        background: #FCA311;
+        color: #000;
+    }
+    
+    .action-btn-primary:hover {
+        background: #e6940f;
+        transform: translateY(-2px);
+    }
+    
+    .action-btn-outline {
+        background: transparent;
+        border: 2px solid #FCA311;
+        color: #FCA311;
+    }
+    
+    .action-btn-outline:hover {
+        background: #FCA311;
+        color: #000;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #999;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+    }
+    
+    .modal-content {
+        border-radius: 20px;
+        border: none;
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #FCA311 0%, #e6940f 100%);
+        color: white;
+        border-radius: 20px 20px 0 0;
+        border: none;
+    }
+    
+    .modal-header .btn-close {
+        filter: brightness(0) invert(1);
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 10px;
+        border: 2px solid #e0e0e0;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #FCA311;
+        box-shadow: 0 0 0 0.2rem rgba(252, 163, 17, 0.25);
+    }
+    
+    .price-display {
+        background: linear-gradient(135deg, #FCA311 0%, #e6940f 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        text-align: center;
+        margin: 1.5rem 0;
+    }
+    
+    .price-display h5 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+    
+    .price-display .amount {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-top: 0.5rem;
+    }
+    
+    .location-permission-alert {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="dashboard-title"><i class="fas fa-tachometer-alt"></i> My Dashboard</h1>
+            </div>
+            <div class="col-auto">
+                <button class="new-order-btn" data-bs-toggle="modal" data-bs-target="#newOrderModal">
+                    <i class="fas fa-plus"></i> New Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Location Permission Alert -->
+    <div id="locationPermissionAlert" class="location-permission-alert" style="display: none;">
+        <strong><i class="fas fa-info-circle"></i> Location Access Required:</strong>
+        Please enable location access in your browser to use address autocomplete features.
+        <button class="btn btn-sm btn-warning ms-2" onclick="requestLocationPermission()">Enable Location</button>
+    </div>
+
+    <!-- Orders List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card" style="border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-radius: 20px;">
+                <div class="card-body" style="padding: 2rem;">
+                    <h3 class="mb-4" style="font-weight: 700; color: #000;"><i class="fas fa-list"></i> My Orders</h3>
+                    <div id="ordersList">
+                        <div class="empty-state">
+                            <i class="fas fa-box-open"></i>
+                            <p>Loading orders...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Order Modal -->
+<div class="modal fade" id="newOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-box"></i> Place New Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding: 2rem;">
+                <form id="newOrderForm">
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <h5 style="color: #FCA311; font-weight: 700; margin-bottom: 1.5rem;">
+                                <i class="fas fa-map-marker-alt"></i> Pickup Details
+                            </h5>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Pickup Name</label>
+                            <input type="text" class="form-control" name="pickup_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Pickup Phone</label>
+                            <input type="tel" class="form-control" name="pickup_phone" required>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Pickup Address <small class="text-muted">(Start typing to see suggestions)</small></label>
+                            <input type="text" class="form-control" id="pickupAddress" name="pickup_address" required autocomplete="off">
+                            <input type="hidden" id="pickupLat" name="pickup_latitude">
+                            <input type="hidden" id="pickupLng" name="pickup_longitude">
+                            <small class="text-muted">Select an address from the dropdown for accurate location</small>
+                        </div>
+                    </div>
+                    
+                    <hr style="margin: 2rem 0;">
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <h5 style="color: #FCA311; font-weight: 700; margin-bottom: 1.5rem;">
+                                <i class="fas fa-truck"></i> Delivery Details
+                            </h5>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Delivery Name</label>
+                            <input type="text" class="form-control" name="delivery_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Delivery Phone</label>
+                            <input type="tel" class="form-control" name="delivery_phone" required>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Delivery Address <small class="text-muted">(Start typing to see suggestions)</small></label>
+                            <input type="text" class="form-control" id="deliveryAddress" name="delivery_address" required autocomplete="off">
+                            <input type="hidden" id="deliveryLat" name="delivery_latitude">
+                            <input type="hidden" id="deliveryLng" name="delivery_longitude">
+                            <small class="text-muted">Select an address from the dropdown for accurate location</small>
+                        </div>
+                    </div>
+                    
+                    <hr style="margin: 2rem 0;">
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <h5 style="color: #FCA311; font-weight: 700; margin-bottom: 1.5rem;">
+                                <i class="fas fa-info-circle"></i> Parcel Details
+                            </h5>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="parcel_description" rows="2" placeholder="What are you sending?"></textarea>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Weight (kg)</label>
+                            <input type="number" step="0.01" class="form-control" name="parcel_weight" placeholder="Optional">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Special Instructions</label>
+                            <textarea class="form-control" name="special_instructions" rows="2" placeholder="Any special instructions?"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="price-display">
+                        <h5>Estimated Price</h5>
+                        <div class="amount" id="estimatedPrice">KES 0</div>
+                    </div>
+                    
+                    <button type="submit" class="btn w-100" style="background: #000; color: white; padding: 1rem; border-radius: 10px; font-weight: 600; font-size: 1.1rem;">
+                        <i class="fas fa-check"></i> Create Order
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const GOOGLE_MAPS_API_KEY = '{{ GOOGLE_MAPS_API_KEY|default:"" }}';
+    const API_BASE = '/api';
+    let pickupAutocomplete, deliveryAutocomplete;
+    let mapsLoaded = false;
+    
+    // Request location permission
+    function requestLocationPermission() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    console.log('Location permission granted');
+                    document.getElementById('locationPermissionAlert').style.display = 'none';
+                },
+                function(error) {
+                    console.warn('Location permission denied:', error);
+                    alert('Location access is recommended for better address suggestions. You can still use the form manually.');
+                }
+            );
+        }
+    }
+    
+    // Check location permission on load
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function() { /* Permission granted */ },
+            function() {
+                document.getElementById('locationPermissionAlert').style.display = 'block';
+            }
+        );
+    }
+    
+    // Load Google Maps with callback
+    function loadGoogleMaps() {
+        if (mapsLoaded) return;
+        
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry,directions&callback=initMaps`;
+        script.async = true;
+        script.defer = true;
+        script.onerror = function() {
+            console.error('Failed to load Google Maps');
+            alert('Failed to load Google Maps. Please check your internet connection.');
+        };
+        document.head.appendChild(script);
+    }
+    
+    // Initialize maps when Google Maps loads
+    window.initMaps = function() {
+        mapsLoaded = true;
+        console.log('Google Maps loaded successfully');
+        initAutocomplete();
+    };
+    
+    // Initialize Google Maps Autocomplete
+    function initAutocomplete() {
+        if (!mapsLoaded || typeof google === 'undefined' || !google.maps || !google.maps.places) {
+            console.warn('Google Maps not ready yet');
+            setTimeout(initAutocomplete, 100);
+            return;
+        }
+        
+        if (!GOOGLE_MAPS_API_KEY) {
+            console.error('Google Maps API key not configured');
+            return;
+        }
+        
+        const pickupInput = document.getElementById('pickupAddress');
+        const deliveryInput = document.getElementById('deliveryAddress');
+        
+        if (!pickupInput || !deliveryInput) {
+            console.warn('Address input fields not found');
+            return;
+        }
+        
+        // Destroy existing autocomplete if any
+        if (pickupAutocomplete) {
+            google.maps.event.clearInstanceListeners(pickupInput);
+        }
+        if (deliveryAutocomplete) {
+            google.maps.event.clearInstanceListeners(deliveryInput);
+        }
+        
+        try {
+            pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput, {
+                componentRestrictions: { country: 'ke' },
+                fields: ['geometry', 'formatted_address', 'name', 'place_id', 'address_components'],
+                types: ['address']
+            });
+            
+            deliveryAutocomplete = new google.maps.places.Autocomplete(deliveryInput, {
+                componentRestrictions: { country: 'ke' },
+                fields: ['geometry', 'formatted_address', 'name', 'place_id', 'address_components'],
+                types: ['address']
+            });
+            
+            pickupAutocomplete.addListener('place_changed', function() {
+                const place = pickupAutocomplete.getPlace();
+                console.log('Pickup place selected:', place);
+                if (place.geometry) {
+                    const lat = place.geometry.location.lat();
+                    const lng = place.geometry.location.lng();
+                    document.getElementById('pickupLat').value = lat;
+                    document.getElementById('pickupLng').value = lng;
+                    console.log('Pickup coordinates:', lat, lng);
+                    calculatePrice();
+                } else {
+                    console.warn('No geometry found for pickup place');
+                }
+            });
+            
+            deliveryAutocomplete.addListener('place_changed', function() {
+                const place = deliveryAutocomplete.getPlace();
+                console.log('Delivery place selected:', place);
+                if (place.geometry) {
+                    const lat = place.geometry.location.lat();
+                    const lng = place.geometry.location.lng();
+                    document.getElementById('deliveryLat').value = lat;
+                    document.getElementById('deliveryLng').value = lng;
+                    console.log('Delivery coordinates:', lat, lng);
+                    calculatePrice();
+                } else {
+                    console.warn('No geometry found for delivery place');
+                }
+            });
+            
+            console.log('Autocomplete initialized successfully');
+        } catch (error) {
+            console.error('Error initializing autocomplete:', error);
+        }
+    }
+    
+    function calculatePrice() {
+        const pickupLat = parseFloat(document.getElementById('pickupLat').value);
+        const pickupLng = parseFloat(document.getElementById('pickupLng').value);
+        const deliveryLat = parseFloat(document.getElementById('deliveryLat').value);
+        const deliveryLng = parseFloat(document.getElementById('deliveryLng').value);
+        
+        if (isNaN(pickupLat) || isNaN(pickupLng) || isNaN(deliveryLat) || isNaN(deliveryLng)) {
+            document.getElementById('estimatedPrice').textContent = 'KES 0';
+            return;
+        }
+        
+        const nairobiBounds = {
+            minLat: -1.5, maxLat: -1.1,
+            minLng: 36.6, maxLng: 37.0
+        };
+        
+        const pickupInNairobi = (
+            pickupLat >= nairobiBounds.minLat && 
+            pickupLat <= nairobiBounds.maxLat &&
+            pickupLng >= nairobiBounds.minLng && 
+            pickupLng <= nairobiBounds.maxLng
+        );
+        
+        const deliveryInNairobi = (
+            deliveryLat >= nairobiBounds.minLat && 
+            deliveryLat <= nairobiBounds.maxLat &&
+            deliveryLng >= nairobiBounds.minLng && 
+            deliveryLng <= nairobiBounds.maxLng
+        );
+        
+        const price = (pickupInNairobi && deliveryInNairobi) ? 150 : 300;
+        document.getElementById('estimatedPrice').textContent = `KES ${price}`;
+        console.log('Price calculated:', price, 'Pickup in Nairobi:', pickupInNairobi, 'Delivery in Nairobi:', deliveryInNairobi);
+    }
+    
+    // Load orders
+    async function loadOrders() {
+        try {
+            const response = await fetch(`${API_BASE}/orders/`, {
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('Orders response:', data);
+            
+            // Handle paginated response
+            let orders = data.results || data;
+            if (!Array.isArray(orders)) {
+                orders = [];
+            }
+            
+            const ordersList = document.getElementById('ordersList');
+            if (!orders || orders.length === 0) {
+                ordersList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-box-open"></i>
+                        <h4 style="color: #666; margin-bottom: 1rem;">No orders yet</h4>
+                        <p>Create your first order to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Ensure orders is an array
+            const ordersArray = Array.isArray(orders) ? orders : [];
+            ordersList.innerHTML = ordersArray.map(order => {
+                const statusClass = `status-${order.status}`;
+                const statusText = order.status.replace(/_/g, ' ').toUpperCase();
+                const createdDate = new Date(order.created_at).toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                let actionButton = '';
+                if (order.status === 'pending_payment') {
+                    actionButton = `<button class="action-btn action-btn-primary" onclick="initiatePayment(${order.id})">
+                        <i class="fas fa-credit-card"></i> Pay Now
+                    </button>`;
+                } else {
+                    actionButton = `<a href="/track/${order.tracking_code}/" class="action-btn action-btn-outline">
+                        <i class="fas fa-eye"></i> Track
+                    </a>`;
+                }
+                
+                return `
+                    <div class="order-card">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <a href="/track/${order.tracking_code}/" class="tracking-code">${order.tracking_code}</a>
+                                <p class="text-muted mb-0" style="font-size: 0.9rem; margin-top: 0.5rem;">
+                                    ${createdDate}
+                                </p>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="order-price">KES ${order.price}</div>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="mb-1" style="font-weight: 600;">
+                                    ${order.pickup_address ? (order.pickup_address.length > 30 ? order.pickup_address.substring(0, 30) + '...' : order.pickup_address) : 'N/A'}
+                                </p>
+                                <p class="text-muted mb-0" style="font-size: 0.9rem;">
+                                    <i class="fas fa-arrow-right"></i> ${order.delivery_address ? (order.delivery_address.length > 30 ? order.delivery_address.substring(0, 30) + '...' : order.delivery_address) : 'N/A'}
+                                </p>
+                            </div>
+                            <div class="col-md-2">
+                                <span class="status-badge ${statusClass}">
+                                    ${statusText}
+                                </span>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                ${actionButton}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Error loading orders:', error);
+            document.getElementById('ordersList').innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h4 style="color: #666; margin-bottom: 1rem;">Error Loading Orders</h4>
+                    <p>${error.message}</p>
+                    <button class="btn btn-primary mt-3" onclick="loadOrders()">Retry</button>
+                </div>
+            `;
+        }
+    }
+    
+    // Create new order
+    document.getElementById('newOrderForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData);
+        
+        // Convert coordinates to numbers
+        if (data.pickup_latitude) data.pickup_latitude = parseFloat(data.pickup_latitude);
+        if (data.pickup_longitude) data.pickup_longitude = parseFloat(data.pickup_longitude);
+        if (data.delivery_latitude) data.delivery_latitude = parseFloat(data.delivery_latitude);
+        if (data.delivery_longitude) data.delivery_longitude = parseFloat(data.delivery_longitude);
+        
+        // Validate coordinates
+        if (!data.pickup_latitude || !data.pickup_longitude) {
+            alert('Please select a valid pickup address from the suggestions.');
+            return;
+        }
+        
+        if (!data.delivery_latitude || !data.delivery_longitude) {
+            alert('Please select a valid delivery address from the suggestions.');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE}/orders/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            if (response.ok) {
+                alert('Order created successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('newOrderModal')).hide();
+                document.getElementById('newOrderForm').reset();
+                document.getElementById('estimatedPrice').textContent = 'KES 0';
+                // Clear autocomplete
+                if (pickupAutocomplete) {
+                    google.maps.event.clearInstanceListeners(document.getElementById('pickupAddress'));
+                }
+                if (deliveryAutocomplete) {
+                    google.maps.event.clearInstanceListeners(document.getElementById('deliveryAddress'));
+                }
+                pickupAutocomplete = null;
+                deliveryAutocomplete = null;
+                loadOrders();
+            } else {
+                const errorMsg = result.error || result.detail || Object.values(result).flat().join(', ') || 'Failed to create order';
+                alert(errorMsg);
+            }
+        } catch (error) {
+            console.error('Error creating order:', error);
+            alert('An error occurred. Please try again.');
+        }
+    });
+    
+    // Initiate payment
+    async function initiatePayment(orderId) {
+        const phone = prompt('Enter your M-Pesa phone number (e.g., 254712345678):');
+        if (!phone) return;
+        
+        try {
+            const response = await fetch(`${API_BASE}/payments/stkpush/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
+                body: JSON.stringify({ order_id: orderId, phone_number: phone })
+            });
+            
+            const result = await response.json();
+            if (response.ok) {
+                alert('Payment request sent! Please check your phone to complete payment.');
+                loadOrders();
+            } else {
+                const errorMsg = result.error || result.detail || 'Payment failed';
+                alert(errorMsg);
+            }
+        } catch (error) {
+            console.error('Error initiating payment:', error);
+            alert('An error occurred. Please try again.');
+        }
+    }
+    
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadGoogleMaps();
+        loadOrders();
+        
+        // Initialize autocomplete when modal opens
+        document.getElementById('newOrderModal')?.addEventListener('shown.bs.modal', function() {
+            setTimeout(function() {
+                if (mapsLoaded) {
+                    initAutocomplete();
+                } else {
+                    // Wait for maps to load
+                    const checkMaps = setInterval(function() {
+                        if (mapsLoaded) {
+                            clearInterval(checkMaps);
+                            initAutocomplete();
+                        }
+                    }, 100);
+                }
+            }, 300);
+        });
+    });
+</script>
+{% endblock %}

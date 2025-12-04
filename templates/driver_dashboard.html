@@ -1,0 +1,319 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+<style>
+    .order-card {
+        transition: transform 0.2s;
+        cursor: pointer;
+    }
+    .order-card:hover {
+        transform: translateY(-5px);
+    }
+    .map-container {
+        height: 400px;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="fas fa-truck"></i> Driver Dashboard</h2>
+        </div>
+        <div class="col-auto">
+            <select class="form-select" id="statusSelect" onchange="updateStatus()">
+                <option value="offline">Offline</option>
+                <option value="available">Available</option>
+                <option value="busy">Busy</option>
+            </select>
+        </div>
+    </div>
+    
+    <!-- Current Status -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> My Orders</h5>
+                </div>
+                <div class="card-body">
+                    <div id="ordersList">
+                        <p class="text-center text-muted">Loading orders...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-map"></i> Navigation</h5>
+                </div>
+                <div class="card-body">
+                    <div id="map" class="map-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order Details Modal -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Order Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="orderDetailsContent">
+                Loading...
+            </div>
+            <div class="modal-footer" id="orderActions">
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY|default:'' }}&libraries=places,geometry,directions"></script>
+<script>
+    const API_BASE = '/api';
+    let map, currentOrder = null;
+    
+    function initMap() {
+        // Default to Nairobi center
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: -1.2921, lng: 36.8219 },
+            zoom: 12
+        });
+    }
+    
+    async function loadOrders() {
+        try {
+            const response = await fetch(`${API_BASE}/drivers/orders/`, {
+                credentials: 'include'
+            });
+            const orders = await response.json();
+            
+            const ordersList = document.getElementById('ordersList');
+            if (orders.length === 0) {
+                ordersList.innerHTML = '<p class="text-center text-muted">No orders assigned yet.</p>';
+                return;
+            }
+            
+            ordersList.innerHTML = orders.map(order => `
+                <div class="card order-card mb-3" onclick="viewOrder(${order.id})">
+                    <div class="card-body">
+                        <h6>${order.tracking_code}</h6>
+                        <p class="mb-1"><strong>From:</strong> ${order.pickup_address}</p>
+                        <p class="mb-1"><strong>To:</strong> ${order.delivery_address}</p>
+                        <p class="mb-0"><span class="badge bg-secondary">${order.status.replace('_', ' ').toUpperCase()}</span></p>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading orders:', error);
+        }
+    }
+    
+    async function viewOrder(orderId) {
+        try {
+            const response = await fetch(`${API_BASE}/orders/${orderId}/`, {
+                credentials: 'include'
+            });
+            const order = await response.json();
+            currentOrder = order;
+            
+            // Show order details
+            document.getElementById('orderDetailsContent').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Pickup Details</h6>
+                        <p><strong>Name:</strong> ${order.pickup_name}</p>
+                        <p><strong>Phone:</strong> ${order.pickup_phone}</p>
+                        <p><strong>Address:</strong> ${order.pickup_address}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Delivery Details</h6>
+                        <p><strong>Name:</strong> ${order.delivery_name}</p>
+                        <p><strong>Phone:</strong> ${order.delivery_phone}</p>
+                        <p><strong>Address:</strong> ${order.delivery_address}</p>
+                    </div>
+                </div>
+                <hr>
+                <p><strong>Price:</strong> KES ${order.price}</p>
+                <p><strong>Status:</strong> ${order.status.replace('_', ' ').toUpperCase()}</p>
+            `;
+            
+            // Show actions based on status
+            let actions = '';
+            if (order.status === 'assigned') {
+                actions = '<button class="btn btn-primary" onclick="acceptOrder()">Accept Order</button>';
+            } else if (order.status === 'accepted') {
+                actions = '<button class="btn btn-success" onclick="confirmPickup()">Confirm Pickup</button>';
+            } else if (order.status === 'picked_up') {
+                actions = '<button class="btn btn-success" onclick="confirmDelivery()">Confirm Delivery</button>';
+            }
+            document.getElementById('orderActions').innerHTML = actions;
+            
+            // Update map
+            if (order.pickup_latitude && order.pickup_longitude && order.delivery_latitude && order.delivery_longitude) {
+                updateMap(order);
+            }
+            
+            new bootstrap.Modal(document.getElementById('orderDetailsModal')).show();
+        } catch (error) {
+            console.error('Error loading order:', error);
+        }
+    }
+    
+    function updateMap(order) {
+        const pickup = { lat: parseFloat(order.pickup_latitude), lng: parseFloat(order.pickup_longitude) };
+        const delivery = { lat: parseFloat(order.delivery_latitude), lng: parseFloat(order.delivery_longitude) };
+        
+        // Clear existing markers
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: pickup,
+            zoom: 12
+        });
+        
+        // Add markers
+        new google.maps.Marker({
+            position: pickup,
+            map: map,
+            label: 'P',
+            title: 'Pickup Location'
+        });
+        
+        new google.maps.Marker({
+            position: delivery,
+            map: map,
+            label: 'D',
+            title: 'Delivery Location'
+        });
+        
+        // Add route
+        const directionsService = new google.maps.DirectionsService();
+        const directionsRenderer = new google.maps.DirectionsRenderer({ map: map });
+        
+        directionsService.route({
+            origin: pickup,
+            destination: delivery,
+            travelMode: 'DRIVING'
+        }, (result, status) => {
+            if (status === 'OK') {
+                directionsRenderer.setDirections(result);
+            }
+        });
+    }
+    
+    async function acceptOrder() {
+        if (!currentOrder) return;
+        
+        try {
+            const response = await fetch(`${API_BASE}/drivers/orders/${currentOrder.id}/accept/`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            
+            const result = await response.json();
+            if (response.ok) {
+                alert('Order accepted!');
+                bootstrap.Modal.getInstance(document.getElementById('orderDetailsModal')).hide();
+                loadOrders();
+            } else {
+                alert(result.error || 'Failed to accept order');
+            }
+        } catch (error) {
+            alert('An error occurred. Please try again.');
+        }
+    }
+    
+    async function confirmPickup() {
+        if (!currentOrder) return;
+        
+        try {
+            const response = await fetch(`${API_BASE}/orders/${currentOrder.id}/status/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
+                body: JSON.stringify({ status: 'picked_up', description: 'Parcel picked up by driver' })
+            });
+            
+            const result = await response.json();
+            if (response.ok) {
+                alert('Pickup confirmed!');
+                bootstrap.Modal.getInstance(document.getElementById('orderDetailsModal')).hide();
+                loadOrders();
+            } else {
+                alert(result.error || 'Failed to confirm pickup');
+            }
+        } catch (error) {
+            alert('An error occurred. Please try again.');
+        }
+    }
+    
+    async function confirmDelivery() {
+        if (!currentOrder) return;
+        
+        try {
+            const response = await fetch(`${API_BASE}/orders/${currentOrder.id}/status/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
+                body: JSON.stringify({ status: 'delivered', description: 'Parcel delivered successfully' })
+            });
+            
+            const result = await response.json();
+            if (response.ok) {
+                alert('Delivery confirmed!');
+                bootstrap.Modal.getInstance(document.getElementById('orderDetailsModal')).hide();
+                loadOrders();
+            } else {
+                alert(result.error || 'Failed to confirm delivery');
+            }
+        } catch (error) {
+            alert('An error occurred. Please try again.');
+        }
+    }
+    
+    async function updateStatus() {
+        const status = document.getElementById('statusSelect').value;
+        
+        try {
+            const response = await fetch(`${API_BASE}/drivers/${await getDriverId()}/status/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
+                body: JSON.stringify({ status: status })
+            });
+            
+            if (response.ok) {
+                alert('Status updated!');
+            }
+        } catch (error) {
+            console.error('Error updating status:', error);
+        }
+    }
+    
+    async function getDriverId() {
+        // Get driver ID from profile
+        const response = await fetch(`${API_BASE}/auth/me/`, { credentials: 'include' });
+        const data = await response.json();
+        return data.profile?.id || 0;
+    }
+    
+    // Initialize
+    if (typeof google !== 'undefined') {
+        initMap();
+    } else {
+        window.addEventListener('load', initMap);
+    }
+    loadOrders();
+</script>
+{% endblock %}
+
