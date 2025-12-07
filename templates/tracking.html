@@ -91,7 +91,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY|default:'' }}&libraries=places,geometry,directions"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY|default:'' }}&libraries=places,geometry&loading=async"></script>
 <script>
     const API_BASE = '/api';
     const trackingCode = window.location.pathname.split('/').pop();
@@ -190,12 +190,26 @@
         }
     }
     
-    if (typeof google !== 'undefined') {
-        initMap();
-    } else {
-        window.addEventListener('load', initMap);
+    // Initialize map when Google Maps loads
+    function initMapsForTracking() {
+        if (typeof google !== 'undefined' && google.maps) {
+            initMap();
+            loadOrder();
+        } else {
+            // Wait for Google Maps to load
+            setTimeout(initMapsForTracking, 100);
+        }
     }
-    loadOrder();
+    
+    // Start initialization
+    if (typeof google !== 'undefined' && google.maps) {
+        initMapsForTracking();
+    } else {
+        // Wait for script to load
+        window.addEventListener('load', function() {
+            setTimeout(initMapsForTracking, 500);
+        });
+    }
     
     // Refresh every 30 seconds
     setInterval(loadOrder, 30000);

@@ -36,8 +36,8 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         fields = ['pickup_name', 'pickup_phone', 'pickup_address',
                   'pickup_latitude', 'pickup_longitude',
                   'delivery_name', 'delivery_phone', 'delivery_address',
-                  'delivery_latitude', 'delivery_longitude',
-                  'parcel_description', 'parcel_weight', 'special_instructions']
+                  'delivery_latitude', 'delivery_longitude']
+        # Removed: parcel_description, parcel_weight, special_instructions
     
     def validate(self, attrs):
         # Validate that at least one address is provided
