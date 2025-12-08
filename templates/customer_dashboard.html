@@ -482,8 +482,9 @@
                                     fields: ['geometry', 'formatted_address']
                                 }, (place, status) => {
                                     if (status === google.maps.places.PlacesServiceStatus.OK && place.geometry) {
-                                        const lat = place.geometry.location.lat();
-                                        const lng = place.geometry.location.lng();
+                                        // Round to 6 decimal places to match database constraint
+                                        const lat = parseFloat(place.geometry.location.lat().toFixed(6));
+                                        const lng = parseFloat(place.geometry.location.lng().toFixed(6));
                                         callback(lat, lng, place.formatted_address);
                                     }
                                 });
@@ -557,8 +558,9 @@
                                         .then(geoData => {
                                             if (geoData.results && geoData.results.length > 0) {
                                                 const location = geoData.results[0].geometry.location;
-                                                const lat = location.lat;
-                                                const lng = location.lng;
+                                                // Round to 6 decimal places to match database constraint
+                                                const lat = parseFloat(parseFloat(location.lat).toFixed(6));
+                                                const lng = parseFloat(parseFloat(location.lng).toFixed(6));
                                                 
                                                 if (type === 'pickup') {
                                                     document.getElementById('pickupLat').value = lat;
@@ -793,11 +795,11 @@
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData);
         
-        // Convert coordinates to numbers
-        if (data.pickup_latitude) data.pickup_latitude = parseFloat(data.pickup_latitude);
-        if (data.pickup_longitude) data.pickup_longitude = parseFloat(data.pickup_longitude);
-        if (data.delivery_latitude) data.delivery_latitude = parseFloat(data.delivery_latitude);
-        if (data.delivery_longitude) data.delivery_longitude = parseFloat(data.delivery_longitude);
+        // Convert coordinates to numbers and round to 6 decimal places
+        if (data.pickup_latitude) data.pickup_latitude = parseFloat(parseFloat(data.pickup_latitude).toFixed(6));
+        if (data.pickup_longitude) data.pickup_longitude = parseFloat(parseFloat(data.pickup_longitude).toFixed(6));
+        if (data.delivery_latitude) data.delivery_latitude = parseFloat(parseFloat(data.delivery_latitude).toFixed(6));
+        if (data.delivery_longitude) data.delivery_longitude = parseFloat(parseFloat(data.delivery_longitude).toFixed(6));
         
         // Validate coordinates
         if (!data.pickup_latitude || !data.pickup_longitude) {

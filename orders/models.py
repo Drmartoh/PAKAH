@@ -25,15 +25,15 @@ class Order(models.Model):
     pickup_name = models.CharField(max_length=255)
     pickup_phone = models.CharField(max_length=15)
     pickup_address = models.TextField()
-    pickup_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    pickup_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    pickup_latitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    pickup_longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
     
     # Delivery details
     delivery_name = models.CharField(max_length=255)
     delivery_phone = models.CharField(max_length=15)
     delivery_address = models.TextField()
-    delivery_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    delivery_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    delivery_latitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    delivery_longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
     
     # Order details
     parcel_description = models.TextField(blank=True)
@@ -68,8 +68,8 @@ class OrderTracking(models.Model):
     """Track order status changes and location updates"""
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='tracking_logs')
     status = models.CharField(max_length=20)
-    location_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    location_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    location_latitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    location_longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     

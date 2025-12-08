@@ -64,7 +64,11 @@ def geocode_address(address):
         
         if data['status'] == 'OK' and data['results']:
             location = data['results'][0]['geometry']['location']
-            return location['lat'], location['lng']
+            # Round to 6 decimal places to match database constraint
+            from decimal import Decimal, ROUND_DOWN
+            lat = Decimal(str(location['lat'])).quantize(Decimal('0.000001'), rounding=ROUND_DOWN)
+            lng = Decimal(str(location['lng'])).quantize(Decimal('0.000001'), rounding=ROUND_DOWN)
+            return float(lat), float(lng)
     except Exception as e:
         print(f"Geocoding error: {e}")
     

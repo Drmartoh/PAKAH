@@ -240,12 +240,14 @@
                 <div class="modal-body">
                     <form id="loginForm">
                         <div class="mb-3">
-                            <label class="form-label">Username</label>
-                            <input type="text" class="form-control" name="username" required>
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" name="phone" placeholder="e.g., 0712345678 or 254712345678" required>
+                            <small class="text-muted">Enter your registered phone number</small>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Password</label>
-                            <input type="password" class="form-control" name="password" required>
+                            <label class="form-label">4-Digit PIN</label>
+                            <input type="password" class="form-control" name="pin" maxlength="4" pattern="[0-9]{4}" placeholder="1234" required>
+                            <small class="text-muted">Enter your 4-digit PIN</small>
                         </div>
                         <button type="submit" class="btn btn-primary w-100">Sign In</button>
                     </form>
@@ -275,24 +277,26 @@
                         <div class="tab-pane fade show active" id="customerSignup">
                             <form id="customerSignupForm">
                                 <div class="mb-3">
-                                    <label class="form-label">Username</label>
-                                    <input type="text" class="form-control" name="username" required>
+                                    <label class="form-label">Phone Number</label>
+                                    <input type="tel" class="form-control" name="phone" placeholder="e.g., 0712345678 or 254712345678" required>
+                                    <small class="text-muted">This will be your login username</small>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Email</label>
-                                    <input type="email" class="form-control" name="email" required>
+                                    <label class="form-label">4-Digit PIN</label>
+                                    <input type="password" class="form-control" name="pin" maxlength="4" pattern="[0-9]{4}" placeholder="1234" required>
+                                    <small class="text-muted">Choose a 4-digit PIN (numbers only)</small>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Full Name</label>
                                     <input type="text" class="form-control" name="full_name" required>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Phone</label>
-                                    <input type="tel" class="form-control" name="phone" required>
+                                    <label class="form-label">Email <small class="text-muted">(Optional)</small></label>
+                                    <input type="email" class="form-control" name="email" placeholder="your@email.com">
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Password</label>
-                                    <input type="password" class="form-control" name="password" required>
+                                    <label class="form-label">Address <small class="text-muted">(Optional)</small></label>
+                                    <textarea class="form-control" name="address" rows="2"></textarea>
                                 </div>
                                 <button type="submit" class="btn btn-primary w-100">Sign Up as Customer</button>
                             </form>
@@ -300,20 +304,18 @@
                         <div class="tab-pane fade" id="driverSignup">
                             <form id="driverSignupForm">
                                 <div class="mb-3">
-                                    <label class="form-label">Username</label>
-                                    <input type="text" class="form-control" name="username" required>
+                                    <label class="form-label">Phone Number</label>
+                                    <input type="tel" class="form-control" name="phone" placeholder="e.g., 0712345678 or 254712345678" required>
+                                    <small class="text-muted">This will be your login username</small>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Email</label>
-                                    <input type="email" class="form-control" name="email" required>
+                                    <label class="form-label">4-Digit PIN</label>
+                                    <input type="password" class="form-control" name="pin" maxlength="4" pattern="[0-9]{4}" placeholder="1234" required>
+                                    <small class="text-muted">Choose a 4-digit PIN (numbers only)</small>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Full Name</label>
                                     <input type="text" class="form-control" name="full_name" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Phone</label>
-                                    <input type="tel" class="form-control" name="phone" required>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">License Number</label>
@@ -321,11 +323,15 @@
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Vehicle Type</label>
-                                    <input type="text" class="form-control" name="vehicle_type">
+                                    <input type="text" class="form-control" name="vehicle_type" placeholder="e.g., Motorcycle, Car, Van">
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Password</label>
-                                    <input type="password" class="form-control" name="password" required>
+                                    <label class="form-label">Vehicle Registration</label>
+                                    <input type="text" class="form-control" name="vehicle_registration" placeholder="e.g., KCA 123A">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Email <small class="text-muted">(Optional)</small></label>
+                                    <input type="email" class="form-control" name="email" placeholder="your@email.com">
                                 </div>
                                 <button type="submit" class="btn btn-primary w-100">Sign Up as Driver</button>
                             </form>
@@ -345,6 +351,12 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
+            
+            // Validate PIN is 4 digits
+            if (data.pin && data.pin.length !== 4) {
+                alert('PIN must be exactly 4 digits');
+                return;
+            }
             
             try {
                 const response = await fetch(`${API_BASE}/auth/login/`, {
@@ -382,6 +394,17 @@
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
             
+            // Validate PIN is 4 digits
+            if (data.pin && data.pin.length !== 4) {
+                alert('PIN must be exactly 4 digits');
+                return;
+            }
+            
+            // Remove empty email if not provided
+            if (!data.email || data.email.trim() === '') {
+                delete data.email;
+            }
+            
             try {
                 const response = await fetch(`${API_BASE}/auth/register/customer/`, {
                     method: 'POST',
@@ -411,6 +434,17 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
+            
+            // Validate PIN is 4 digits
+            if (data.pin && data.pin.length !== 4) {
+                alert('PIN must be exactly 4 digits');
+                return;
+            }
+            
+            // Remove empty email if not provided
+            if (!data.email || data.email.trim() === '') {
+                delete data.email;
+            }
             
             try {
                 const response = await fetch(`${API_BASE}/auth/register/driver/`, {
@@ -478,6 +512,35 @@
             }
             return cookieValue;
         }
+        
+        // Format phone number inputs
+        document.querySelectorAll('input[name="phone"]').forEach(input => {
+            input.addEventListener('input', function(e) {
+                // Remove non-numeric characters except +
+                let value = e.target.value.replace(/[^\d+]/g, '');
+                e.target.value = value;
+            });
+        });
+        
+        // Restrict PIN inputs to numbers only
+        document.querySelectorAll('input[name="pin"]').forEach(input => {
+            input.addEventListener('input', function(e) {
+                // Only allow numbers
+                let value = e.target.value.replace(/[^\d]/g, '');
+                // Limit to 4 digits
+                if (value.length > 4) {
+                    value = value.substring(0, 4);
+                }
+                e.target.value = value;
+            });
+            
+            // Prevent non-numeric input
+            input.addEventListener('keypress', function(e) {
+                if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter'].includes(e.key)) {
+                    e.preventDefault();
+                }
+            });
+        });
     </script>
     {% block extra_js %}{% endblock %}
 </body>

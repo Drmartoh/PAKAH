@@ -93,11 +93,22 @@
 {% block extra_js %}
 <script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY|default:'' }}&libraries=places,geometry&loading=async"></script>
 <script>
-    const API_BASE = '/api';
-    const trackingCode = window.location.pathname.split('/').pop();
+    // Use existing API_BASE if defined, otherwise set it
+    if (typeof API_BASE === 'undefined') {
+        window.API_BASE = '/api';
+    }
+    const apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '/api');
+    
+    // Extract tracking code from URL
+    const pathParts = window.location.pathname.split('/').filter(part => part);
+    const trackingCode = pathParts[pathParts.length - 1] || '';
     let map;
     
-    document.getElementById('trackingCode').textContent = trackingCode;
+    // Set tracking code display
+    const trackingCodeElement = document.getElementById('trackingCode');
+    if (trackingCodeElement) {
+        trackingCodeElement.textContent = trackingCode || 'N/A';
+    }
     
     function initMap() {
         map = new google.maps.Map(document.getElementById('map'), {
@@ -107,23 +118,50 @@
     }
     
     async function loadOrder() {
+        if (!trackingCode) {
+            document.getElementById('orderDetails').innerHTML = '<p class="text-danger">Invalid tracking code</p>';
+            document.getElementById('trackingTimeline').innerHTML = '<p class="text-danger">Invalid tracking code</p>';
+            return;
+        }
+        
         try {
-            const response = await fetch(`${API_BASE}/orders/tracking/${trackingCode}/`);
+            const response = await fetch(`${apiBase}/orders/tracking/${trackingCode}/`);
+            
+            if (!response.ok) {
+                if (response.status === 404) {
+                    document.getElementById('orderDetails').innerHTML = '<p class="text-danger">Order not found. Please check your tracking code.</p>';
+                    document.getElementById('trackingTimeline').innerHTML = '<p class="text-muted">No tracking information available.</p>';
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const order = await response.json();
             
+            // Format status for display
+            const statusText = order.status ? order.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Unknown';
+            const statusClass = order.status === 'delivered' ? 'bg-success' : 
+                              order.status === 'in_transit' || order.status === 'picked_up' ? 'bg-info' :
+                              order.status === 'pending_payment' ? 'bg-warning' : 'bg-secondary';
+            
             // Order details
-            document.getElementById('orderDetails').innerHTML = `
-                <p><strong>Status:</strong> <span class="badge bg-secondary">${order.status.replace('_', ' ').toUpperCase()}</span></p>
-                <p><strong>Price:</strong> KES ${order.price}</p>
+            const orderDetailsHtml = `
+                <p><strong>Status:</strong> <span class="badge ${statusClass}">${statusText}</span></p>
+                <p><strong>Price:</strong> KES ${order.price || '0.00'}</p>
+                <p><strong>Tracking Code:</strong> <code>${order.tracking_code || trackingCode}</code></p>
                 <hr>
-                <h6>Pickup</h6>
-                <p><strong>Name:</strong> ${order.pickup_name}</p>
-                <p><strong>Address:</strong> ${order.pickup_address}</p>
+                <h6><i class="fas fa-map-marker-alt text-primary"></i> Pickup</h6>
+                <p><strong>Name:</strong> ${order.pickup_name || 'N/A'}</p>
+                <p><strong>Phone:</strong> ${order.pickup_phone || 'N/A'}</p>
+                <p><strong>Address:</strong> ${order.pickup_address || 'N/A'}</p>
                 <hr>
-                <h6>Delivery</h6>
-                <p><strong>Name:</strong> ${order.delivery_name}</p>
-                <p><strong>Address:</strong> ${order.delivery_address}</p>
+                <h6><i class="fas fa-map-marker-alt text-success"></i> Delivery</h6>
+                <p><strong>Name:</strong> ${order.delivery_name || 'N/A'}</p>
+                <p><strong>Phone:</strong> ${order.delivery_phone || 'N/A'}</p>
+                <p><strong>Address:</strong> ${order.delivery_address || 'N/A'}</p>
+                ${order.created_at ? `<hr><p class="text-muted small"><strong>Order Date:</strong> ${new Date(order.created_at).toLocaleString()}</p>` : ''}
             `;
+            document.getElementById('orderDetails').innerHTML = orderDetailsHtml;
             
             // Tracking timeline
             const statuses = [
@@ -150,69 +188,145 @@
             
             document.getElementById('trackingTimeline').innerHTML = timeline;
             
-            // Update map
-            if (order.pickup_latitude && order.pickup_longitude && order.delivery_latitude && order.delivery_longitude) {
-                const pickup = { lat: parseFloat(order.pickup_latitude), lng: parseFloat(order.pickup_longitude) };
-                const delivery = { lat: parseFloat(order.delivery_latitude), lng: parseFloat(order.delivery_longitude) };
-                
-                map.setCenter(pickup);
-                
-                new google.maps.Marker({
-                    position: pickup,
-                    map: map,
-                    label: 'P',
-                    title: 'Pickup Location'
-                });
-                
-                new google.maps.Marker({
-                    position: delivery,
-                    map: map,
-                    label: 'D',
-                    title: 'Delivery Location'
-                });
-                
-                const directionsService = new google.maps.DirectionsService();
-                const directionsRenderer = new google.maps.DirectionsRenderer({ map: map });
-                
-                directionsService.route({
-                    origin: pickup,
-                    destination: delivery,
-                    travelMode: 'DRIVING'
-                }, (result, status) => {
-                    if (status === 'OK') {
-                        directionsRenderer.setDirections(result);
-                    }
-                });
+            // Update map if coordinates are available
+            if (order.pickup_latitude && order.pickup_longitude && order.delivery_latitude && order.delivery_longitude && map) {
+                try {
+                    const pickup = { 
+                        lat: parseFloat(order.pickup_latitude), 
+                        lng: parseFloat(order.pickup_longitude) 
+                    };
+                    const delivery = { 
+                        lat: parseFloat(order.delivery_latitude), 
+                        lng: parseFloat(order.delivery_longitude) 
+                    };
+                    
+                    // Center map between pickup and delivery
+                    const bounds = new google.maps.LatLngBounds();
+                    bounds.extend(pickup);
+                    bounds.extend(delivery);
+                    map.fitBounds(bounds);
+                    
+                    // Add pickup marker
+                    new google.maps.Marker({
+                        position: pickup,
+                        map: map,
+                        label: {
+                            text: 'P',
+                            color: '#fff',
+                            fontWeight: 'bold'
+                        },
+                        title: 'Pickup Location',
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 8,
+                            fillColor: '#FCA311',
+                            fillOpacity: 1,
+                            strokeColor: '#000',
+                            strokeWeight: 2
+                        }
+                    });
+                    
+                    // Add delivery marker
+                    new google.maps.Marker({
+                        position: delivery,
+                        map: map,
+                        label: {
+                            text: 'D',
+                            color: '#fff',
+                            fontWeight: 'bold'
+                        },
+                        title: 'Delivery Location',
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 8,
+                            fillColor: '#28a745',
+                            fillOpacity: 1,
+                            strokeColor: '#000',
+                            strokeWeight: 2
+                        }
+                    });
+                    
+                    // Show route
+                    const directionsService = new google.maps.DirectionsService();
+                    const directionsRenderer = new google.maps.DirectionsRenderer({ 
+                        map: map,
+                        suppressMarkers: true, // Use our custom markers
+                        polylineOptions: {
+                            strokeColor: '#FCA311',
+                            strokeWeight: 4
+                        }
+                    });
+                    
+                    directionsService.route({
+                        origin: pickup,
+                        destination: delivery,
+                        travelMode: google.maps.TravelMode.DRIVING
+                    }, (result, status) => {
+                        if (status === 'OK') {
+                            directionsRenderer.setDirections(result);
+                        } else {
+                            console.warn('Directions request failed:', status);
+                        }
+                    });
+                } catch (mapError) {
+                    console.error('Error updating map:', mapError);
+                }
+            } else if (map) {
+                // No coordinates available, center on Nairobi
+                map.setCenter({ lat: -1.2921, lng: 36.8219 });
+                map.setZoom(12);
             }
         } catch (error) {
             console.error('Error loading order:', error);
-            document.getElementById('orderDetails').innerHTML = '<p class="text-danger">Order not found</p>';
+            const errorMsg = error.message || 'Failed to load order information';
+            document.getElementById('orderDetails').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    <strong>Error:</strong> ${errorMsg}
+                </div>
+            `;
+            document.getElementById('trackingTimeline').innerHTML = '<p class="text-muted">Unable to load tracking information.</p>';
         }
     }
     
     // Initialize map when Google Maps loads
     function initMapsForTracking() {
+        const mapElement = document.getElementById('map');
+        if (!mapElement) {
+            console.error('Map element not found');
+            return;
+        }
+        
         if (typeof google !== 'undefined' && google.maps) {
-            initMap();
-            loadOrder();
+            try {
+                initMap();
+                loadOrder();
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                // Still try to load order data even if map fails
+                loadOrder();
+            }
         } else {
             // Wait for Google Maps to load
             setTimeout(initMapsForTracking, 100);
         }
     }
     
-    // Start initialization
-    if (typeof google !== 'undefined' && google.maps) {
-        initMapsForTracking();
-    } else {
-        // Wait for script to load
-        window.addEventListener('load', function() {
-            setTimeout(initMapsForTracking, 500);
+    // Start initialization when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            // Wait a bit for Google Maps script to potentially load
+            setTimeout(initMapsForTracking, 300);
         });
+    } else {
+        // DOM already loaded
+        setTimeout(initMapsForTracking, 300);
     }
     
-    // Refresh every 30 seconds
-    setInterval(loadOrder, 30000);
+    // Refresh every 30 seconds if tracking code is valid
+    if (trackingCode) {
+        setInterval(loadOrder, 30000);
+    }
 </script>
 {% endblock %}
 

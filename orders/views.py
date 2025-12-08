@@ -56,7 +56,20 @@ class OrderListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        serializer = self.get_serializer(data=request.data)
+        # Round coordinates before validation to avoid max_digits error
+        from decimal import Decimal, ROUND_DOWN
+        
+        data = request.data.copy()
+        for field in ['pickup_latitude', 'pickup_longitude', 'delivery_latitude', 'delivery_longitude']:
+            if field in data and data[field] is not None and data[field] != '':
+                try:
+                    # Round to 6 decimal places
+                    value = Decimal(str(data[field])).quantize(Decimal('0.000001'), rounding=ROUND_DOWN)
+                    data[field] = str(value)
+                except (ValueError, TypeError):
+                    pass
+        
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         
         # Geocode addresses if coordinates not provided
@@ -65,20 +78,22 @@ class OrderListCreateView(generics.ListCreateAPIView):
         if not pickup_lat or not pickup_lng:
             lat, lng = geocode_address(serializer.validated_data['pickup_address'])
             if lat and lng:
-                pickup_lat = lat
-                pickup_lng = lng
-                serializer.validated_data['pickup_latitude'] = lat
-                serializer.validated_data['pickup_longitude'] = lng
+                # Round to 6 decimal places
+                pickup_lat = Decimal(str(lat)).quantize(Decimal('0.000001'), rounding=ROUND_DOWN)
+                pickup_lng = Decimal(str(lng)).quantize(Decimal('0.000001'), rounding=ROUND_DOWN)
+                serializer.validated_data['pickup_latitude'] = pickup_lat
+                serializer.validated_data['pickup_longitude'] = pickup_lng
         
         delivery_lat = serializer.validated_data.get('delivery_latitude')
         delivery_lng = serializer.validated_data.get('delivery_longitude')
         if not delivery_lat or not delivery_lng:
             lat, lng = geocode_address(serializer.validated_data['delivery_address'])
             if lat and lng:
-                delivery_lat = lat
-                delivery_lng = lng
-                serializer.validated_data['delivery_latitude'] = lat
-                serializer.validated_data['delivery_longitude'] = lng
+                # Round to 6 decimal places
+                delivery_lat = Decimal(str(lat)).quantize(Decimal('0.000001'), rounding=ROUND_DOWN)
+                delivery_lng = Decimal(str(lng)).quantize(Decimal('0.000001'), rounding=ROUND_DOWN)
+                serializer.validated_data['delivery_latitude'] = delivery_lat
+                serializer.validated_data['delivery_longitude'] = delivery_lng
         
         # Calculate price - use default if coordinates not available
         if pickup_lat and pickup_lng and delivery_lat and delivery_lng:
@@ -137,7 +152,7 @@ class OrderDetailView(generics.RetrieveUpdateAPIView):
 def track_order(request, tracking_code):
     """Public endpoint to track order by tracking code"""
     try:
-        order = Order.objects.get(tracking_code=tracking_code)
+        order = Order.objects.select_related('customer', 'driver').prefetch_related('tracking_logs').get(tracking_code=tracking_code)
         serializer = OrderSerializer(order)
         return Response(serializer.data)
     except Order.DoesNotExist:
