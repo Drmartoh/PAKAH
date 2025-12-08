@@ -12,6 +12,7 @@ def get_access_token():
     consumer_secret = settings.MPESA_CONSUMER_SECRET
     
     if not consumer_key or not consumer_secret:
+        print("M-Pesa credentials not configured")
         return None
     
     url = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
@@ -29,9 +30,18 @@ def get_access_token():
     
     try:
         response = requests.get(url, headers=headers, timeout=10)
+        print(f"M-Pesa Access Token Response Status: {response.status_code}")
+        
         if response.status_code == 200:
             data = response.json()
-            return data.get('access_token')
+            access_token = data.get('access_token')
+            if access_token:
+                print("M-Pesa access token retrieved successfully")
+                return access_token
+            else:
+                print(f"M-Pesa access token response: {data}")
+        else:
+            print(f"M-Pesa access token error - Status: {response.status_code}, Response: {response.text}")
     except Exception as e:
         print(f"M-Pesa access token error: {e}")
     
@@ -96,10 +106,42 @@ def initiate_stk_push(phone_number, amount, order_tracking_code, callback_url):
     
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
+        response_data = response.json()
+        
+        # Log the response for debugging
+        print(f"M-Pesa STK Push Response Status: {response.status_code}")
+        print(f"M-Pesa STK Push Response: {response_data}")
+        
         if response.status_code == 200:
-            return response.json()
+            return response_data
+        else:
+            # Return error information
+            return {
+                'error': True,
+                'status_code': response.status_code,
+                'errorMessage': response_data.get('errorMessage', 'Unknown error'),
+                'errorCode': response_data.get('errorCode', 'UNKNOWN'),
+                'ResponseCode': response_data.get('ResponseCode', 'ERROR'),
+                'ResponseDescription': response_data.get('ResponseDescription', 'Request failed'),
+                'CustomerMessage': response_data.get('CustomerMessage', 'Payment request failed'),
+                'full_response': response_data
+            }
+    except requests.exceptions.RequestException as e:
+        print(f"M-Pesa STK Push network error: {e}")
+        return {
+            'error': True,
+            'errorMessage': f'Network error: {str(e)}',
+            'errorCode': 'NETWORK_ERROR',
+            'ResponseCode': 'ERROR',
+            'CustomerMessage': 'Failed to connect to M-Pesa. Please check your internet connection.'
+        }
     except Exception as e:
         print(f"M-Pesa STK Push error: {e}")
-    
-    return None
+        return {
+            'error': True,
+            'errorMessage': str(e),
+            'errorCode': 'UNKNOWN_ERROR',
+            'ResponseCode': 'ERROR',
+            'CustomerMessage': 'An unexpected error occurred. Please try again.'
+        }
 

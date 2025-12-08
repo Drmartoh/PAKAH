@@ -6,6 +6,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -16,12 +17,12 @@ urlpatterns = [
     path('api/notifications/', include('notifications.urls')),
     path('api/maps/', include('orders.map_urls')),
     
-    # Frontend routes
-    path('', TemplateView.as_view(template_name='landing.html'), name='landing'),
-    path('dashboard/', TemplateView.as_view(template_name='customer_dashboard.html'), name='customer_dashboard'),
-    path('admin-dashboard/', TemplateView.as_view(template_name='admin_dashboard.html'), name='admin_dashboard'),
-    path('driver-dashboard/', TemplateView.as_view(template_name='driver_dashboard.html'), name='driver_dashboard'),
-    path('track/<str:tracking_code>/', TemplateView.as_view(template_name='tracking.html'), name='tracking'),
+    # Frontend routes - ensure CSRF cookie is set
+    path('', ensure_csrf_cookie(TemplateView.as_view(template_name='landing.html')), name='landing'),
+    path('dashboard/', ensure_csrf_cookie(TemplateView.as_view(template_name='customer_dashboard.html')), name='customer_dashboard'),
+    path('admin-dashboard/', ensure_csrf_cookie(TemplateView.as_view(template_name='admin_dashboard.html')), name='admin_dashboard'),
+    path('driver-dashboard/', ensure_csrf_cookie(TemplateView.as_view(template_name='driver_dashboard.html')), name='driver_dashboard'),
+    path('track/<str:tracking_code>/', ensure_csrf_cookie(TemplateView.as_view(template_name='tracking.html')), name='tracking'),
 ]
 
 if settings.DEBUG:

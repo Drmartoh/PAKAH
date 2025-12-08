@@ -22,6 +22,31 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 
 class STKPushSerializer(serializers.Serializer):
-    order_id = serializers.IntegerField()
-    phone_number = serializers.CharField(max_length=15)
+    order_id = serializers.IntegerField(required=True)
+    phone_number = serializers.CharField(max_length=20, required=True)
+    
+    def validate_phone_number(self, value):
+        """Normalize and validate phone number"""
+        if not value:
+            raise serializers.ValidationError('Phone number is required')
+        
+        # Remove common separators
+        phone = value.replace(' ', '').replace('-', '').replace('+', '').strip()
+        
+        # Ensure it starts with country code
+        if not phone.startswith('254'):
+            if phone.startswith('0'):
+                phone = '254' + phone[1:]
+            else:
+                phone = '254' + phone
+        
+        # Validate length (254 + 9 digits = 12 characters)
+        if len(phone) < 12 or len(phone) > 15:
+            raise serializers.ValidationError('Invalid phone number format. Use format: 254712345678 or 0712345678')
+        
+        # Validate it's numeric
+        if not phone.isdigit():
+            raise serializers.ValidationError('Phone number must contain only digits')
+        
+        return phone
 

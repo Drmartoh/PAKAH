@@ -331,6 +331,13 @@
                 }
             }
         }
+        // Fallback: try to get from meta tag
+        if (!cookieValue) {
+            const metaTag = document.querySelector('meta[name="csrf-token"]');
+            if (metaTag) {
+                cookieValue = metaTag.getAttribute('content');
+            }
+        }
         return cookieValue;
     }
     
@@ -854,28 +861,63 @@
     
     // Initiate payment
     async function initiatePayment(orderId) {
-        const phone = prompt('Enter your M-Pesa phone number (e.g., 254712345678):');
+        const phone = prompt('Enter your M-Pesa phone number (e.g., 254712345678 or 0712345678):');
         if (!phone) return;
         
+        // Normalize phone number (remove spaces, dashes, etc.)
+        let normalizedPhone = phone.replace(/\s+/g, '').replace(/-/g, '').replace(/\+/g, '');
+        
+        // Ensure order_id is an integer
+        const orderIdInt = parseInt(orderId);
+        if (isNaN(orderIdInt)) {
+            alert('Invalid order ID');
+            return;
+        }
+        
         try {
+            // Get CSRF token
+            const csrftoken = getCookie('csrftoken');
+            
+            const requestData = {
+                order_id: orderIdInt,
+                phone_number: normalizedPhone
+            };
+            
+            console.log('Sending payment request:', requestData);
+            
             const response = await fetch(`${API_BASE}/payments/stkpush/`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken || ''
+                },
                 credentials: 'include',
-                body: JSON.stringify({ order_id: orderId, phone_number: phone })
+                body: JSON.stringify(requestData)
             });
             
             const result = await response.json();
+            console.log('Payment response:', result);
+            
             if (response.ok) {
                 alert('Payment request sent! Please check your phone to complete payment.');
                 loadOrders();
             } else {
-                const errorMsg = result.error || result.detail || 'Payment failed';
+                // Show detailed error messages
+                let errorMsg = 'Payment failed';
+                if (result.messages && result.messages.length > 0) {
+                    errorMsg = result.messages.join('\n');
+                } else if (result.error) {
+                    errorMsg = result.error;
+                } else if (result.detail) {
+                    errorMsg = result.detail;
+                } else if (result.details) {
+                    errorMsg = JSON.stringify(result.details);
+                }
                 alert(errorMsg);
             }
         } catch (error) {
             console.error('Error initiating payment:', error);
-            alert('An error occurred. Please try again.');
+            alert('An error occurred. Please try again. Check console for details.');
         }
     }
     

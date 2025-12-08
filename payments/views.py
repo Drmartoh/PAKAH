@@ -18,7 +18,15 @@ def initiate_payment(request):
     """Initiate M-Pesa STK Push payment"""
     serializer = STKPushSerializer(data=request.data)
     if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Return detailed error messages
+        error_messages = []
+        for field, errors in serializer.errors.items():
+            for error in errors:
+                error_messages.append(f"{field}: {error}")
+        return Response(
+            {'error': 'Validation failed', 'details': serializer.errors, 'messages': error_messages}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
     user = request.user
     if user.role != 'customer':
@@ -76,6 +84,27 @@ def initiate_payment(request):
         callback_url=callback_url
     )
     
+    # Check if we got an error response
+    if response_data and response_data.get('error'):
+        payment.status = 'failed'
+        error_message = response_data.get('CustomerMessage') or response_data.get('errorMessage') or 'Payment initiation failed'
+        payment.result_description = error_message
+        payment.save()
+        
+        return Response(
+            {
+                'error': error_message,
+                'details': {
+                    'errorCode': response_data.get('errorCode'),
+                    'errorMessage': response_data.get('errorMessage'),
+                    'ResponseCode': response_data.get('ResponseCode'),
+                    'ResponseDescription': response_data.get('ResponseDescription'),
+                },
+                'message': 'Failed to initiate payment. Please check your M-Pesa credentials and try again.'
+            }, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
     if response_data and response_data.get('ResponseCode') == '0':
         payment.merchant_request_id = merchant_request_id
         payment.checkout_request_id = response_data.get('CheckoutRequestID')
@@ -93,11 +122,39 @@ def initiate_payment(request):
         }, status=status.HTTP_200_OK)
     else:
         payment.status = 'failed'
-        payment.result_description = response_data.get('CustomerMessage', 'Payment failed') if response_data else 'Payment initiation failed'
+        error_message = 'Payment initiation failed'
+        error_details = {}
+        
+        if response_data:
+            error_message = response_data.get('CustomerMessage') or response_data.get('errorDescription') or response_data.get('errorMessage') or 'Payment failed'
+            error_details = {
+                'ResponseCode': response_data.get('ResponseCode'),
+                'ResponseDescription': response_data.get('ResponseDescription'),
+                'CustomerMessage': response_data.get('CustomerMessage'),
+                'errorCode': response_data.get('errorCode'),
+                'errorMessage': response_data.get('errorMessage'),
+            }
+        else:
+            error_message = 'No response from M-Pesa API. Please check your API credentials and network connection.'
+            error_details = {
+                'error': 'M-Pesa API did not respond. This could be due to:',
+                'possible_causes': [
+                    'Invalid M-Pesa API credentials',
+                    'Network connectivity issues',
+                    'M-Pesa API service unavailable',
+                    'Access token could not be retrieved'
+                ]
+            }
+        
+        payment.result_description = error_message
         payment.save()
         
         return Response(
-            {'error': 'Failed to initiate payment. Please try again.'}, 
+            {
+                'error': error_message,
+                'details': error_details,
+                'message': 'Failed to initiate payment. Please check your M-Pesa credentials and try again.'
+            }, 
             status=status.HTTP_400_BAD_REQUEST
         )
 
