@@ -1,12 +1,15 @@
 from rest_framework import status, generics, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, authenticate
+from django.utils import timezone
 from .serializers import (
     UserSerializer, CustomerRegistrationSerializer, DriverRegistrationSerializer,
     LoginSerializer, CustomerSerializer, DriverSerializer
 )
 from .models import User, Customer, Driver
+from orders.models import Order
+from payments.models import Payment
 
 
 @api_view(['POST'])
@@ -101,4 +104,65 @@ def current_user(request):
         'user': UserSerializer(user).data,
         'profile': profile_data
     })
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def delete_account(request):
+    """Permanently delete user account"""
+    user = request.user
+    
+    if user.role != 'customer':
+        return Response(
+            {'error': 'Only customers can delete their accounts through this endpoint'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Verify PIN
+    pin = request.data.get('pin')
+    if not pin:
+        return Response(
+            {'error': 'PIN is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Authenticate with phone and PIN
+    authenticated_user = authenticate(request, username=user.phone_number, password=pin)
+    if not authenticated_user or authenticated_user != user:
+        return Response(
+            {'error': 'Invalid PIN. Please enter your correct 4-digit PIN.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Delete associated data
+        customer = user.customer_profile
+        orders = Order.objects.filter(customer=customer)
+        
+        # Delete payments associated with orders
+        for order in orders:
+            if hasattr(order, 'payment'):
+                order.payment.delete()
+        
+        # Delete orders
+        orders.delete()
+        
+        # Delete customer profile
+        customer.delete()
+        
+        # Delete user account
+        user.delete()
+        
+        # Logout the user
+        logout(request)
+        
+        return Response(
+            {'message': 'Account deleted successfully'},
+            status=status.HTTP_200_OK
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'Error deleting account: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 

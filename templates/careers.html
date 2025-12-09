@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}Careers - PAKA HOME{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <h1 class="mb-4">Careers at PAKA HOME</h1>
+            <p class="lead text-muted mb-5">Join our team and help us deliver excellence across Kenya!</p>
+            
+            <div class="card mb-4">
+                <div class="card-body p-4">
+                    <h3>Why Work With Us?</h3>
+                    <ul>
+                        <li>Competitive compensation packages</li>
+                        <li>Flexible working arrangements</li>
+                        <li>Opportunities for career growth</li>
+                        <li>Supportive team environment</li>
+                        <li>Make a real impact in Kenya's logistics sector</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-body p-4">
+                    <h3>Open Positions</h3>
+                    {% if user.is_authenticated and user.role == 'admin' %}
+                        <div class="alert alert-info">
+                            <strong>Admin Note:</strong> You can manage job postings from the Admin Dashboard.
+                        </div>
+                    {% endif %}
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle"></i> <strong>Currently, we have no open positions.</strong> However, we're always interested in hearing from talented individuals. Please check back regularly or send your resume to <a href="mailto:careers@pakahomeapp.co.ke">careers@pakahomeapp.co.ke</a>
+                    </div>
+                    
+                    <h4 class="mt-4">General Application</h4>
+                    <p>Even if we don't have a specific opening, we welcome applications from:</p>
+                    <ul>
+                        <li>Delivery Drivers (Motorcycle, Car, Van)</li>
+                        <li>Customer Service Representatives</li>
+                        <li>Operations Coordinators</li>
+                        <li>Software Developers</li>
+                        <li>Marketing Specialists</li>
+                    </ul>
+                    
+                    <p class="mt-3">Send your CV and cover letter to: <a href="mailto:careers@pakahomeapp.co.ke">careers@pakahomeapp.co.ke</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

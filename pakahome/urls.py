@@ -23,6 +23,9 @@ urlpatterns = [
     path('admin-dashboard/', ensure_csrf_cookie(TemplateView.as_view(template_name='admin_dashboard.html')), name='admin_dashboard'),
     path('driver-dashboard/', ensure_csrf_cookie(TemplateView.as_view(template_name='driver_dashboard.html')), name='driver_dashboard'),
     path('track/<str:tracking_code>/', ensure_csrf_cookie(TemplateView.as_view(template_name='tracking.html')), name='tracking'),
+    path('terms/', ensure_csrf_cookie(TemplateView.as_view(template_name='terms.html')), name='terms'),
+    path('careers/', ensure_csrf_cookie(TemplateView.as_view(template_name='careers.html')), name='careers'),
+    path('track/', ensure_csrf_cookie(TemplateView.as_view(template_name='tracking.html')), name='track'),
 ]
 
 if settings.DEBUG:

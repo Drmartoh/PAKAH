@@ -311,7 +311,7 @@
             <div class="col-md-4 step-card">
                 <div class="step-number">1</div>
                 <h3 class="step-title">Place Order</h3>
-                <p class="step-description">Enter pickup and delivery locations. We calculate the price instantly.</p>
+                <p class="step-description">Enter pickup and drop-off locations. We calculate the price instantly.</p>
             </div>
             <div class="col-md-4 step-card">
                 <div class="step-number">2</div>
@@ -425,19 +425,19 @@
                     <div class="row mb-3">
                         <div class="col-12">
                             <h5 style="color: var(--primary-blue); font-weight: 700; margin-bottom: 1.5rem;">
-                                <i class="fas fa-truck"></i> Delivery Details
+                                <i class="fas fa-truck"></i> Drop-off Details
                             </h5>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Delivery Name</label>
+                            <label class="form-label">Drop-off Name</label>
                             <input type="text" class="form-control" name="delivery_name" required>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Delivery Phone</label>
+                            <label class="form-label">Drop-off Phone</label>
                             <input type="tel" class="form-control" name="delivery_phone" required>
                         </div>
                         <div class="col-12 mb-3">
-                            <label class="form-label">Delivery Address <small class="text-muted">(Start typing to see suggestions)</small></label>
+                            <label class="form-label">Drop-off Address <small class="text-muted">(Start typing to see suggestions)</small></label>
                             <input type="text" class="form-control" id="deliveryAddressQuick" name="delivery_address" required autocomplete="off">
                             <input type="hidden" id="deliveryLatQuick" name="delivery_latitude">
                             <input type="hidden" id="deliveryLngQuick" name="delivery_longitude">
@@ -609,8 +609,9 @@
                 const place = pickupAutocompleteQuick.getPlace();
                 console.log('Pickup place selected:', place);
                 if (place.geometry) {
-                    const lat = place.geometry.location.lat();
-                    const lng = place.geometry.location.lng();
+                    // Round to 6 decimal places
+                    const lat = parseFloat(place.geometry.location.lat().toFixed(6));
+                    const lng = parseFloat(place.geometry.location.lng().toFixed(6));
                     document.getElementById('pickupLatQuick').value = lat;
                     document.getElementById('pickupLngQuick').value = lng;
                     console.log('Pickup coordinates:', lat, lng);
@@ -624,8 +625,9 @@
                 const place = deliveryAutocompleteQuick.getPlace();
                 console.log('Delivery place selected:', place);
                 if (place.geometry) {
-                    const lat = place.geometry.location.lat();
-                    const lng = place.geometry.location.lng();
+                    // Round to 6 decimal places
+                    const lat = parseFloat(place.geometry.location.lat().toFixed(6));
+                    const lng = parseFloat(place.geometry.location.lng().toFixed(6));
                     document.getElementById('deliveryLatQuick').value = lat;
                     document.getElementById('deliveryLngQuick').value = lng;
                     console.log('Delivery coordinates:', lat, lng);
@@ -687,15 +689,25 @@
         {% if user.is_authenticated %}
         openOrderForm();
         {% else %}
-        alert('Please sign in or create an account to book a delivery.');
+        // Show signup modal for non-authenticated users with friendly message
         const signupModal = new bootstrap.Modal(document.getElementById('signupModal'));
         signupModal.show();
+        setTimeout(() => {
+            // Optional: Show a helpful message
+            console.log('Please sign up to book a delivery');
+        }, 300);
         {% endif %}
     }
     
     function openOrderForm() {
         {% if user.is_authenticated %}
-        const orderModal = new bootstrap.Modal(document.getElementById('orderFormModal'));
+        const orderModalElement = document.getElementById('orderFormModal');
+        if (!orderModalElement) {
+            console.error('Order form modal not found');
+            alert('Order form not available. Please refresh the page.');
+            return;
+        }
+        const orderModal = new bootstrap.Modal(orderModalElement);
         orderModal.show();
         console.log('Opening order form modal...');
         // Wait for modal animation and input fields to be visible
@@ -716,9 +728,12 @@
             }
         }, 500);
         {% else %}
-        alert('Please sign in to book a delivery.');
+        // Redirect to login for non-authenticated users
         const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
         loginModal.show();
+        setTimeout(() => {
+            console.log('Please sign in to book a delivery');
+        }, 300);
         {% endif %}
     }
     
@@ -732,11 +747,11 @@
                 const formData = new FormData(e.target);
                 const data = Object.fromEntries(formData);
                 
-                // Convert coordinates to numbers
-                if (data.pickup_latitude) data.pickup_latitude = parseFloat(data.pickup_latitude);
-                if (data.pickup_longitude) data.pickup_longitude = parseFloat(data.pickup_longitude);
-                if (data.delivery_latitude) data.delivery_latitude = parseFloat(data.delivery_latitude);
-                if (data.delivery_longitude) data.delivery_longitude = parseFloat(data.delivery_longitude);
+                // Convert coordinates to numbers and round to 6 decimal places
+                if (data.pickup_latitude) data.pickup_latitude = parseFloat(parseFloat(data.pickup_latitude).toFixed(6));
+                if (data.pickup_longitude) data.pickup_longitude = parseFloat(parseFloat(data.pickup_longitude).toFixed(6));
+                if (data.delivery_latitude) data.delivery_latitude = parseFloat(parseFloat(data.delivery_latitude).toFixed(6));
+                if (data.delivery_longitude) data.delivery_longitude = parseFloat(parseFloat(data.delivery_longitude).toFixed(6));
                 
                 // Validate coordinates
                 if (!data.pickup_latitude || !data.pickup_longitude) {

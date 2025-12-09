@@ -5,11 +5,15 @@ from django.shortcuts import get_object_or_404
 from django.conf import settings
 from .models import Payment
 from .serializers import PaymentSerializer, STKPushSerializer
-from .services import initiate_stk_push
+from .services import initiate_stk_push, validate_webhook_signature, process_incoming_payment_result
 from orders.models import Order
 from users.models import Customer
 from notifications.services import send_sms_notification
 import uuid
+import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['POST'])
@@ -72,8 +76,16 @@ def initiate_payment(request):
             status='pending'
         )
     
-    # Generate callback URL
-    callback_url = f"{request.scheme}://{request.get_host()}/api/payments/callback/"
+    # Generate callback URL - use PythonAnywhere domain for production, localhost for sandbox
+    if settings.KOPOKOPO_ENVIRONMENT == 'production':
+        callback_url = "https://pakaapp.pythonanywhere.com/api/payments/callback/"
+    else:
+        # For sandbox, use the request host (works for localhost and ngrok)
+        callback_url = f"{request.scheme}://{request.get_host()}/api/payments/callback/"
+    
+    # Get customer details
+    customer_name = customer.full_name if customer.full_name else f"{customer.user.phone_number}"
+    customer_email = customer.email if hasattr(customer, 'email') and customer.email else None
     
     # Initiate STK Push
     merchant_request_id = str(uuid.uuid4())
@@ -81,71 +93,16 @@ def initiate_payment(request):
         phone_number=phone_number,
         amount=order.price,
         order_tracking_code=order.tracking_code,
-        callback_url=callback_url
+        callback_url=callback_url,
+        customer_name=customer_name,
+        customer_email=customer_email
     )
     
     # Check if we got an error response
-    if response_data and response_data.get('error'):
+    if not response_data.get('success'):
         payment.status = 'failed'
-        error_message = response_data.get('CustomerMessage') or response_data.get('errorMessage') or 'Payment initiation failed'
-        payment.result_description = error_message
-        payment.save()
-        
-        return Response(
-            {
-                'error': error_message,
-                'details': {
-                    'errorCode': response_data.get('errorCode'),
-                    'errorMessage': response_data.get('errorMessage'),
-                    'ResponseCode': response_data.get('ResponseCode'),
-                    'ResponseDescription': response_data.get('ResponseDescription'),
-                },
-                'message': 'Failed to initiate payment. Please check your M-Pesa credentials and try again.'
-            }, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    if response_data and response_data.get('ResponseCode') == '0':
-        payment.merchant_request_id = merchant_request_id
-        payment.checkout_request_id = response_data.get('CheckoutRequestID')
-        payment.status = 'processing'
-        payment.save()
-        
-        # Update order status
-        order.status = 'pending_assignment'
-        order.save()
-        
-        return Response({
-            'message': 'Payment request sent. Please check your phone to complete payment.',
-            'checkout_request_id': payment.checkout_request_id,
-            'payment': PaymentSerializer(payment).data
-        }, status=status.HTTP_200_OK)
-    else:
-        payment.status = 'failed'
-        error_message = 'Payment initiation failed'
-        error_details = {}
-        
-        if response_data:
-            error_message = response_data.get('CustomerMessage') or response_data.get('errorDescription') or response_data.get('errorMessage') or 'Payment failed'
-            error_details = {
-                'ResponseCode': response_data.get('ResponseCode'),
-                'ResponseDescription': response_data.get('ResponseDescription'),
-                'CustomerMessage': response_data.get('CustomerMessage'),
-                'errorCode': response_data.get('errorCode'),
-                'errorMessage': response_data.get('errorMessage'),
-            }
-        else:
-            error_message = 'No response from M-Pesa API. Please check your API credentials and network connection.'
-            error_details = {
-                'error': 'M-Pesa API did not respond. This could be due to:',
-                'possible_causes': [
-                    'Invalid M-Pesa API credentials',
-                    'Network connectivity issues',
-                    'M-Pesa API service unavailable',
-                    'Access token could not be retrieved'
-                ]
-            }
-        
+        error_message = response_data.get('message', 'Payment initiation failed')
+        error_details = response_data.get('error_details', {})
         payment.result_description = error_message
         payment.save()
         
@@ -153,82 +110,139 @@ def initiate_payment(request):
             {
                 'error': error_message,
                 'details': error_details,
-                'message': 'Failed to initiate payment. Please check your M-Pesa credentials and try again.'
+                'message': 'Failed to initiate payment. Please try again.'
             }, 
             status=status.HTTP_400_BAD_REQUEST
         )
+    
+    # Success - payment request initiated
+    payment.merchant_request_id = merchant_request_id
+    payment.checkout_request_id = response_data.get('payment_request_id', '')
+    payment.status = 'processing'
+    payment.save()
+    
+    return Response({
+        'message': response_data.get('message', 'Payment request sent. Please check your phone to complete payment.'),
+        'payment_request_id': response_data.get('payment_request_id'),
+        'payment': PaymentSerializer(payment).data
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def payment_callback(request):
-    """M-Pesa payment callback endpoint"""
-    # M-Pesa sends callback data in request body
-    data = request.data
+    """KopoKopo payment callback endpoint"""
+    # Get raw request body for signature validation
+    request_body = request.body.decode('utf-8')
     
-    body = data.get('Body', {})
-    stk_callback = body.get('stkCallback', {})
+    # Validate webhook signature
+    signature_header = request.headers.get('X-KopoKopo-Signature', '')
+    if signature_header and not validate_webhook_signature(request_body, signature_header):
+        logger.warning("Invalid webhook signature received")
+        return Response({'error': 'Invalid signature'}, status=status.HTTP_401_UNAUTHORIZED)
     
-    checkout_request_id = stk_callback.get('CheckoutRequestID')
-    result_code = stk_callback.get('ResultCode')
-    result_description = stk_callback.get('ResultDesc')
+    # Parse callback data
+    try:
+        callback_data = json.loads(request_body)
+    except json.JSONDecodeError:
+        logger.error("Invalid JSON in callback")
+        return Response({'error': 'Invalid JSON'}, status=status.HTTP_400_BAD_REQUEST)
     
-    if not checkout_request_id:
-        return Response({'error': 'Invalid callback'}, status=status.HTTP_400_BAD_REQUEST)
+    # Process the incoming payment result
+    result = process_incoming_payment_result(callback_data)
+    
+    if not result:
+        return Response({'error': 'Failed to process callback'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get metadata to find the order
+    data = callback_data.get('data', {})
+    attributes = data.get('attributes', {})
+    metadata = attributes.get('metadata', {})
+    order_tracking_code = metadata.get('order_tracking_code') or metadata.get('order_reference')
+    
+    if not order_tracking_code:
+        logger.error("No order tracking code in callback metadata")
+        return Response({'error': 'Order tracking code not found'}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        payment = Payment.objects.get(checkout_request_id=checkout_request_id)
-    except Payment.DoesNotExist:
-        return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
+        order = Order.objects.get(tracking_code=order_tracking_code)
+    except Order.DoesNotExist:
+        logger.error(f"Order not found: {order_tracking_code}")
+        return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
     
-    if result_code == 0:
+    # Get or create payment record
+    payment, created = Payment.objects.get_or_create(
+        order=order,
+        defaults={
+            'customer': order.customer,
+            'phone_number': result.get('sender_phone_number', ''),
+            'amount': order.price,
+            'status': 'pending'
+        }
+    )
+    
+    if result.get('success'):
         # Payment successful
-        callback_metadata = stk_callback.get('CallbackMetadata', {})
-        items = callback_metadata.get('Item', [])
-        
-        receipt_number = None
-        transaction_date = None
-        
-        for item in items:
-            if item.get('Name') == 'MpesaReceiptNumber':
-                receipt_number = item.get('Value')
-            elif item.get('Name') == 'TransactionDate':
-                transaction_date = item.get('Value')
-        
         payment.status = 'completed'
-        payment.mpesa_receipt_number = receipt_number
-        payment.result_code = result_code
-        payment.result_description = result_description
+        payment.mpesa_receipt_number = result.get('mpesa_receipt_number', '')
+        payment.result_code = 0
+        payment.result_description = 'Payment successful'
         
-        if transaction_date:
+        # Parse transaction date
+        transaction_date_str = result.get('transaction_date')
+        if transaction_date_str:
             from datetime import datetime
             try:
-                # M-Pesa date format: YYYYMMDDHHMMSS
-                payment.transaction_date = datetime.strptime(str(transaction_date), '%Y%m%d%H%M%S')
-            except:
-                pass
+                # KopoKopo uses ISO 8601 format: 2020-10-21T09:30:40+03:00
+                # Handle both Z and +03:00 timezone formats
+                date_str = transaction_date_str.replace('Z', '+00:00')
+                # Remove microseconds if present (format: 2020-10-21T09:30:40.123+03:00)
+                if '.' in date_str and '+' in date_str:
+                    # Split at dot, take first part, then add timezone
+                    date_part, tz_part = date_str.split('+', 1)
+                    date_str = date_part.split('.')[0] + '+' + tz_part
+                elif '.' in date_str:
+                    date_str = date_str.split('.')[0]
+                
+                # Python 3.7+ supports fromisoformat
+                payment.transaction_date = datetime.fromisoformat(date_str)
+            except (ValueError, AttributeError) as e:
+                logger.warning(f"Could not parse transaction date: {e}, value: {transaction_date_str}")
+                # Try simple format without timezone
+                try:
+                    date_part = transaction_date_str.split('+')[0].split('Z')[0].split('.')[0]
+                    payment.transaction_date = datetime.strptime(date_part, '%Y-%m-%dT%H:%M:%S')
+                except:
+                    logger.error(f"Failed to parse transaction date: {transaction_date_str}")
         
         payment.save()
         
         # Update order status
-        order = payment.order
         order.status = 'pending_assignment'
         order.save()
         
         # Send confirmation SMS
-        send_sms_notification(
-            payment.customer.phone,
-            f"Payment of KES {payment.amount} for order {order.tracking_code} confirmed. Receipt: {receipt_number}"
-        )
+        try:
+            # Use customer phone or user phone_number
+            customer_phone = getattr(payment.customer, 'phone', None) or payment.customer.user.phone_number
+            if customer_phone:
+                send_sms_notification(
+                    customer_phone,
+                    f"Payment of KES {payment.amount} for order {order.tracking_code} confirmed. Receipt: {payment.mpesa_receipt_number}"
+                )
+        except Exception as e:
+            logger.error(f"Failed to send SMS notification: {e}")
         
+        logger.info(f"Payment completed for order {order_tracking_code}")
         return Response({'message': 'Payment confirmed'}, status=status.HTTP_200_OK)
     else:
         # Payment failed
         payment.status = 'failed'
-        payment.result_code = result_code
-        payment.result_description = result_description
+        payment.result_code = 1
+        payment.result_description = result.get('error_message', 'Payment failed')
         payment.save()
         
+        logger.warning(f"Payment failed for order {order_tracking_code}: {result.get('error_message')}")
         return Response({'message': 'Payment failed'}, status=status.HTTP_200_OK)
 
 

@@ -179,13 +179,24 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
-# M-Pesa Configuration
-MPESA_CONSUMER_KEY = config('MPESA_CONSUMER_KEY', default='R48HC6Rknl7vmW6YfJ2gjf-ayc5medeCpZfLNuW-iuU')
-MPESA_CONSUMER_SECRET = config('MPESA_CONSUMER_SECRET', default='--jgwMLZQcb4Q-a5MA0xMi-lhhteG0mhoCngO7LUgwY')
-MPESA_SHORTCODE = config('MPESA_SHORTCODE', default='5630946')
-MPESA_PASSKEY = config('MPESA_PASSKEY', default='5d3fd56fbfbc3dcb3daecbb1420bd2db1269e5c4')
-MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default='5630946')
-MPESA_ENVIRONMENT = config('MPESA_ENVIRONMENT', default='sandbox')
+# KopoKopo M-Pesa Configuration
+# SECURITY: All credentials must be set via environment variables in production
+# Never commit actual credentials to version control
+KOPOKOPO_CLIENT_ID = config('KOPOKOPO_CLIENT_ID', default='')
+KOPOKOPO_CLIENT_SECRET = config('KOPOKOPO_CLIENT_SECRET', default='')
+KOPOKOPO_API_KEY = config('KOPOKOPO_API_KEY', default='')
+KOPOKOPO_BASE_URL = config('KOPOKOPO_BASE_URL', default='https://api.kopokopo.com')  # Production API
+KOPOKOPO_TILL_NUMBER = config('KOPOKOPO_TILL_NUMBER', default='K5630946')  # Production till number (K prefix for API)
+MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default='5630946')  # Display till number (shown to customers)
+KOPOKOPO_ENVIRONMENT = config('KOPOKOPO_ENVIRONMENT', default='production')  # production or sandbox
+
+# Validate that production credentials are set (only in production, not during development)
+# Note: In production on PythonAnywhere, set these via environment variables
+# if KOPOKOPO_ENVIRONMENT == 'production' and not all([KOPOKOPO_CLIENT_ID, KOPOKOPO_CLIENT_SECRET, KOPOKOPO_API_KEY]):
+#     raise ValueError(
+#         "KopoKopo production credentials must be set via environment variables: "
+#         "KOPOKOPO_CLIENT_ID, KOPOKOPO_CLIENT_SECRET, KOPOKOPO_API_KEY"
+#     )
 
 # Africa's Talking Configuration
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')

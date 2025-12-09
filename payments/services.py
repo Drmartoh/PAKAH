@@ -1,147 +1,264 @@
-"""M-Pesa Daraja API integration service"""
+"""KopoKopo M-Pesa API integration service"""
 from django.conf import settings
 import requests
-import base64
-from datetime import datetime
 import json
+import hashlib
+import hmac
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_access_token():
-    """Get M-Pesa OAuth access token"""
-    consumer_key = settings.MPESA_CONSUMER_KEY
-    consumer_secret = settings.MPESA_CONSUMER_SECRET
+    """Get KopoKopo OAuth access token using client credentials flow"""
+    client_id = settings.KOPOKOPO_CLIENT_ID
+    client_secret = settings.KOPOKOPO_CLIENT_SECRET
+    base_url = settings.KOPOKOPO_BASE_URL
     
-    if not consumer_key or not consumer_secret:
-        print("M-Pesa credentials not configured")
+    if not client_id or not client_secret:
+        logger.error("KopoKopo credentials not configured")
         return None
     
-    url = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
-    
-    if settings.MPESA_ENVIRONMENT == 'production':
-        url = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
-    
-    auth_string = f"{consumer_key}:{consumer_secret}"
-    auth_bytes = auth_string.encode('ascii')
-    auth_base64 = base64.b64encode(auth_bytes).decode('ascii')
+    url = f"{base_url}/oauth/token"
     
     headers = {
-        'Authorization': f'Basic {auth_base64}'
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'PAKA-HOME/1.0'
+    }
+    
+    data = {
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'grant_type': 'client_credentials'
     }
     
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        print(f"M-Pesa Access Token Response Status: {response.status_code}")
+        response = requests.post(url, data=data, headers=headers, timeout=10)
+        logger.info(f"KopoKopo Access Token Response Status: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
             access_token = data.get('access_token')
             if access_token:
-                print("M-Pesa access token retrieved successfully")
+                logger.info("KopoKopo access token retrieved successfully")
                 return access_token
             else:
-                print(f"M-Pesa access token response: {data}")
+                logger.error(f"KopoKopo access token response: {data}")
         else:
-            print(f"M-Pesa access token error - Status: {response.status_code}, Response: {response.text}")
+            logger.error(f"KopoKopo access token error - Status: {response.status_code}, Response: {response.text}")
     except Exception as e:
-        print(f"M-Pesa access token error: {e}")
+        logger.error(f"KopoKopo access token error: {e}")
     
     return None
 
 
-def generate_password():
-    """Generate M-Pesa API password"""
-    shortcode = settings.MPESA_SHORTCODE
-    passkey = settings.MPESA_PASSKEY
-    
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    data_to_encode = f"{shortcode}{passkey}{timestamp}"
-    
-    password = base64.b64encode(data_to_encode.encode()).decode('ascii')
-    return password, timestamp
-
-
-def initiate_stk_push(phone_number, amount, order_tracking_code, callback_url):
+def initiate_stk_push(phone_number, amount, order_tracking_code, callback_url, customer_name=None, customer_email=None):
     """
-    Initiate M-Pesa STK Push payment
-    Returns response data or None if failed
+    Initiate KopoKopo M-Pesa STK Push payment
+    Returns dict with success status and message/error_details
     """
     access_token = get_access_token()
     if not access_token:
-        return None
+        return {
+            'success': False,
+            'message': 'Failed to authenticate with KopoKopo. Please check your API credentials.',
+            'error_details': 'Could not retrieve access token'
+        }
     
-    shortcode = settings.MPESA_SHORTCODE
-    password, timestamp = generate_password()
-    
-    url = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
-    
-    if settings.MPESA_ENVIRONMENT == 'production':
-        url = "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+    base_url = settings.KOPOKOPO_BASE_URL
+    url = f"{base_url}/api/v1/incoming_payments"
     
     headers = {
         'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'PAKA-HOME/1.0'
     }
     
-    # Format phone number (remove + and ensure it starts with 254)
-    phone = phone_number.replace('+', '').replace(' ', '')
-    if not phone.startswith('254'):
-        if phone.startswith('0'):
-            phone = '254' + phone[1:]
+    # Format phone number (ensure it starts with +254)
+    phone = phone_number.replace(' ', '').replace('-', '')
+    if not phone.startswith('+254'):
+        if phone.startswith('254'):
+            phone = '+' + phone
+        elif phone.startswith('0'):
+            phone = '+254' + phone[1:]
         else:
-            phone = '254' + phone
+            phone = '+254' + phone
+    
+    # Split customer name if provided
+    first_name = 'Customer'
+    last_name = ''
+    if customer_name:
+        name_parts = customer_name.strip().split(' ', 1)
+        first_name = name_parts[0]
+        if len(name_parts) > 1:
+            last_name = name_parts[1]
+    
+    # Prepare subscriber data
+    subscriber = {
+        'phone_number': phone,
+        'first_name': first_name,
+        'last_name': last_name
+    }
+    if customer_email:
+        subscriber['email'] = customer_email
+    
+    # Prepare amount data
+    # Convert to float first to handle Decimal types, then format as string
+    # Remove unnecessary .0 for whole numbers (e.g., 150.0 -> 150, 150.5 -> 150.5)
+    amount_float = float(amount)
+    if amount_float.is_integer():
+        amount_value = str(int(amount_float))
+    else:
+        amount_value = str(amount_float)
+    
+    amount_data = {
+        'currency': 'KES',
+        'value': amount_value
+    }
+    
+    # Prepare metadata
+    metadata = {
+        'order_tracking_code': order_tracking_code,
+        'order_reference': order_tracking_code
+    }
+    
+    # Prepare links
+    links = {
+        'callback_url': callback_url
+    }
     
     payload = {
-        "BusinessShortCode": shortcode,
-        "Password": password,
-        "Timestamp": timestamp,
-        "TransactionType": "CustomerPayBillOnline",
-        "Amount": int(amount),
-        "PartyA": phone,
-        "PartyB": shortcode,
-        "PhoneNumber": phone,
-        "CallBackURL": callback_url,
-        "AccountReference": order_tracking_code,
-        "TransactionDesc": f"PAKA HOME Order {order_tracking_code}"
+        'payment_channel': 'MPESA',
+        'till_number': settings.KOPOKOPO_TILL_NUMBER,
+        'subscriber': subscriber,
+        'amount': amount_data,
+        'metadata': metadata,
+        '_links': links
     }
     
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
-        response_data = response.json()
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        response_data = response.json() if response.content else {}
         
-        # Log the response for debugging
-        print(f"M-Pesa STK Push Response Status: {response.status_code}")
-        print(f"M-Pesa STK Push Response: {response_data}")
+        logger.info(f"KopoKopo STK Push Response Status: {response.status_code}")
+        logger.info(f"KopoKopo STK Push Response: {response_data}")
         
-        if response.status_code == 200:
-            return response_data
-        else:
-            # Return error information
+        if response.status_code == 201:
+            # Success - Location header contains the payment request URL
+            location = response.headers.get('Location', '')
             return {
-                'error': True,
-                'status_code': response.status_code,
-                'errorMessage': response_data.get('errorMessage', 'Unknown error'),
-                'errorCode': response_data.get('errorCode', 'UNKNOWN'),
-                'ResponseCode': response_data.get('ResponseCode', 'ERROR'),
-                'ResponseDescription': response_data.get('ResponseDescription', 'Request failed'),
-                'CustomerMessage': response_data.get('CustomerMessage', 'Payment request failed'),
-                'full_response': response_data
+                'success': True,
+                'message': 'Payment request sent successfully. Please check your phone to complete payment.',
+                'location': location,
+                'payment_request_id': location.split('/')[-1] if location else None
+            }
+        else:
+            # Error response
+            error_message = response_data.get('error_message', 'Unknown error')
+            error_code = response_data.get('error_code', response.status_code)
+            
+            return {
+                'success': False,
+                'message': f'Failed to initiate payment: {error_message}',
+                'error_details': {
+                    'error_code': error_code,
+                    'error_message': error_message,
+                    'status_code': response.status_code,
+                    'full_response': response_data
+                }
             }
     except requests.exceptions.RequestException as e:
-        print(f"M-Pesa STK Push network error: {e}")
+        logger.error(f"KopoKopo STK Push network error: {e}")
         return {
-            'error': True,
-            'errorMessage': f'Network error: {str(e)}',
-            'errorCode': 'NETWORK_ERROR',
-            'ResponseCode': 'ERROR',
-            'CustomerMessage': 'Failed to connect to M-Pesa. Please check your internet connection.'
+            'success': False,
+            'message': f'Network error: {str(e)}',
+            'error_details': {
+                'error_type': 'NETWORK_ERROR',
+                'error_message': str(e)
+            }
         }
     except Exception as e:
-        print(f"M-Pesa STK Push error: {e}")
+        logger.error(f"KopoKopo STK Push error: {e}")
         return {
-            'error': True,
-            'errorMessage': str(e),
-            'errorCode': 'UNKNOWN_ERROR',
-            'ResponseCode': 'ERROR',
-            'CustomerMessage': 'An unexpected error occurred. Please try again.'
+            'success': False,
+            'message': f'An unexpected error occurred: {str(e)}',
+            'error_details': {
+                'error_type': 'UNKNOWN_ERROR',
+                'error_message': str(e)
+            }
         }
 
+
+def validate_webhook_signature(request_body, signature_header):
+    """
+    Validate KopoKopo webhook signature
+    Uses SHA256 HMAC with API key as the secret
+    """
+    api_key = settings.KOPOKOPO_API_KEY
+    if not api_key:
+        logger.warning("KopoKopo API key not configured, skipping signature validation")
+        return False
+    
+    try:
+        # Calculate expected signature
+        expected_signature = hmac.new(
+            api_key.encode('utf-8'),
+            request_body.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        
+        # Compare signatures (constant-time comparison to prevent timing attacks)
+        return hmac.compare_digest(expected_signature, signature_header)
+    except Exception as e:
+        logger.error(f"Error validating webhook signature: {e}")
+        return False
+
+
+def process_incoming_payment_result(callback_data):
+    """
+    Process KopoKopo incoming payment result callback
+    Returns dict with payment status and details
+    """
+    try:
+        data = callback_data.get('data', {})
+        attributes = data.get('attributes', {})
+        event = attributes.get('event', {})
+        
+        status = attributes.get('status', 'Unknown')
+        resource = event.get('resource')
+        errors = event.get('errors')
+        
+        if status == 'Success' and resource:
+            # Payment successful
+            return {
+                'success': True,
+                'status': 'completed',
+                'mpesa_receipt_number': resource.get('reference'),
+                'amount': resource.get('amount'),
+                'currency': resource.get('currency'),
+                'sender_phone_number': resource.get('sender_phone_number'),
+                'transaction_date': resource.get('origination_time'),
+                'till_number': resource.get('till_number'),
+                'sender_first_name': resource.get('sender_first_name'),
+                'sender_last_name': resource.get('sender_last_name'),
+                'metadata': attributes.get('metadata', {}),
+                'full_resource': resource
+            }
+        else:
+            # Payment failed
+            error_message = errors if errors else 'Payment request failed'
+            return {
+                'success': False,
+                'status': 'failed',
+                'error_message': error_message,
+                'errors': errors
+            }
+    except Exception as e:
+        logger.error(f"Error processing incoming payment result: {e}")
+        return {
+            'success': False,
+            'status': 'error',
+            'error_message': f'Error processing callback: {str(e)}'
+        }

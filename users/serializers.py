@@ -48,11 +48,14 @@ class CustomerRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'phone': 'This phone number is already registered'})
         
         # Create user with phone number as username
+        from django.utils import timezone
         user = User.objects.create_user(
             phone_number=phone,
             email=email or f"{phone}@pakahome.local",  # Use phone-based email if not provided
             password=pin,
-            role='customer'
+            role='customer',
+            terms_accepted=True,
+            terms_accepted_at=timezone.now()
         )
         
         # Use phone-based email if not provided, or None if empty

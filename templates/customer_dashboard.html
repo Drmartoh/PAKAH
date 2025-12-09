@@ -231,6 +231,74 @@
     </div>
 </div>
 
+<!-- Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-cog"></i> Account Settings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <h6><i class="fas fa-user"></i> Account Information</h6>
+                    <p class="text-muted">Manage your account settings and preferences.</p>
+                </div>
+                
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle"></i> Danger Zone</h6>
+                    <p class="mb-2">Permanently delete your account and all associated data.</p>
+                    <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+                        <i class="fas fa-trash"></i> Delete My Account
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Account Confirmation Modal -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Delete Account</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <strong>Warning:</strong> This action cannot be undone. This will permanently delete your account and all associated data including:
+                    <ul class="mb-0 mt-2">
+                        <li>Your profile information</li>
+                        <li>All your orders</li>
+                        <li>Payment history</li>
+                        <li>All other account data</li>
+                    </ul>
+                </div>
+                <form id="deleteAccountForm">
+                    <div class="mb-3">
+                        <label class="form-label">Enter your 4-Digit PIN to confirm:</label>
+                        <input type="password" class="form-control" id="deletePin" name="pin" maxlength="4" pattern="[0-9]{4}" placeholder="1234" required>
+                        <small class="text-muted">This is required to verify account deletion</small>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                        <label class="form-check-label" for="confirmDelete">
+                            I understand that this action is permanent and cannot be undone
+                        </label>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash"></i> Permanently Delete Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- New Order Modal -->
 <div class="modal fade" id="newOrderModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -272,19 +340,19 @@
                     <div class="row mb-3">
                         <div class="col-12">
                             <h5 style="color: #FCA311; font-weight: 700; margin-bottom: 1.5rem;">
-                                <i class="fas fa-truck"></i> Delivery Details
+                                <i class="fas fa-truck"></i> Drop-off Details
                             </h5>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Delivery Name</label>
+                            <label class="form-label">Drop-off Name</label>
                             <input type="text" class="form-control" name="delivery_name" required>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Delivery Phone</label>
+                            <label class="form-label">Drop-off Phone</label>
                             <input type="tel" class="form-control" name="delivery_phone" required>
                         </div>
                         <div class="col-12 mb-3">
-                            <label class="form-label">Delivery Address <small class="text-muted">(Start typing to see suggestions)</small></label>
+                            <label class="form-label">Drop-off Address <small class="text-muted">(Start typing to see suggestions)</small></label>
                             <input type="text" class="form-control" id="deliveryAddress" name="delivery_address" required autocomplete="off" placeholder="Start typing to see suggestions...">
                             <input type="hidden" id="deliveryLat" name="delivery_latitude">
                             <input type="hidden" id="deliveryLng" name="delivery_longitude">
@@ -751,6 +819,23 @@
                     </a>`;
                 }
                 
+                // M-Pesa Till Number display (Safaricom green) - always visible
+                const mpesaTillNumber = '{{ MPESA_TILL_NUMBER|default:"5630946" }}';
+                const mpesaInfo = `
+                    <div class="mpesa-till-info" style="background: linear-gradient(135deg, #00A859 0%, #007A3D 100%); color: white; padding: 0.75rem; border-radius: 10px; margin-top: 0.5rem; font-size: 0.85rem; box-shadow: 0 2px 8px rgba(0, 168, 89, 0.3); border: 1px solid rgba(255,255,255,0.2);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
+                            <span style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-mobile-alt" style="font-size: 1.1rem;"></i> 
+                                <span>M-Pesa Till:</span>
+                            </span>
+                            <span style="font-weight: 700; font-size: 1.2rem; letter-spacing: 2px; background: rgba(255,255,255,0.2); padding: 0.25rem 0.5rem; border-radius: 5px; font-family: 'Courier New', monospace;">${mpesaTillNumber}</span>
+                        </div>
+                        <small style="opacity: 0.95; display: block; font-size: 0.75rem;">
+                            ${order.status === 'pending_payment' ? '💳 Pay via M-Pesa or click "Pay Now" button' : '📱 Use this Till number for M-Pesa payments'}
+                        </small>
+                    </div>
+                `;
+                
                 return `
                     <div class="order-card">
                         <div class="row align-items-center">
@@ -770,6 +855,7 @@
                                 <p class="text-muted mb-0" style="font-size: 0.9rem;">
                                     <i class="fas fa-arrow-right"></i> ${order.delivery_address ? (order.delivery_address.length > 30 ? order.delivery_address.substring(0, 30) + '...' : order.delivery_address) : 'N/A'}
                                 </p>
+                                ${mpesaInfo}
                             </div>
                             <div class="col-md-2">
                                 <span class="status-badge ${statusClass}">
@@ -963,6 +1049,51 @@
                 }, 300);
             });
         }
+        
+        // Delete Account Form Handler
+        document.getElementById('deleteAccountForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pin = document.getElementById('deletePin').value;
+            const confirmCheckbox = document.getElementById('confirmDelete');
+            
+            if (!confirmCheckbox.checked) {
+                alert('Please confirm that you understand this action is permanent.');
+                return;
+            }
+            
+            if (pin.length !== 4) {
+                alert('Please enter your 4-digit PIN.');
+                return;
+            }
+            
+            if (!confirm('Are you absolutely sure you want to delete your account? This cannot be undone!')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/delete-account/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ pin: pin })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    alert('Your account has been permanently deleted.');
+                    window.location.href = '/';
+                } else {
+                    const errorMsg = result.error || result.detail || 'Failed to delete account. Please check your PIN and try again.';
+                    alert(errorMsg);
+                }
+            } catch (error) {
+                console.error('Error deleting account:', error);
+                alert('An error occurred. Please try again.');
+            }
+        });
     });
 </script>
 {% endblock %}
