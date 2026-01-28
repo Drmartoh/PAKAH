@@ -6,23 +6,16 @@ from pathlib import Path
 from decouple import config
 import os
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
-
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
-
-
-# Application definition
+# allow local dev and your PythonAnywhere subdomain by default
+ALLOWED_HOSTS = config(
+    'ALLOWED_HOSTS',
+    default='pakahomeparceldelivery.website,www.pakahomeparceldelivery.website,pakahomedeliveries.co.ke,www.pakahomedeliveries.co.ke,pakaapp.pythonanywhere.com,localhost,127.0.0.1'
+).split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -34,8 +27,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'django_filters',
-    
-    # Custom apps
     'users',
     'orders',
     'drivers',
@@ -75,23 +66,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'pakahome.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
-# Try PostgreSQL first, fallback to SQLite for development
+# Database selection (unchanged) ...
 DB_ENGINE = config('DB_ENGINE', default='postgresql')
-
 if DB_ENGINE == 'sqlite' or (DB_ENGINE == 'postgresql' and not config('DB_PASSWORD', default='')):
-    # Use SQLite for development/testing
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+    DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3','NAME': BASE_DIR / 'db.sqlite3',}}
 else:
-    # Use PostgreSQL for production
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -103,35 +82,15 @@ else:
         }
     }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
-
-# Simple 4-digit PIN validation - no complex password requirements
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {
-            'min_length': 4,
-        }
-    },
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+     'OPTIONS': {'min_length': 4,}}
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.0/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'Africa/Nairobi'
-
 USE_I18N = True
-
 USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
@@ -140,15 +99,9 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# Custom User Model
 AUTH_USER_MODEL = 'users.User'
 
-# REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
@@ -163,59 +116,61 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
-    # CSRF settings for API
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
 }
 
-# CORS Settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
 ]
-
 CORS_ALLOW_CREDENTIALS = True
 
-# KopoKopo M-Pesa Configuration
-# SECURITY: All credentials must be set via environment variables in production
-# Never commit actual credentials to version control
-KOPOKOPO_CLIENT_ID = config('KOPOKOPO_CLIENT_ID', default='')
-KOPOKOPO_CLIENT_SECRET = config('KOPOKOPO_CLIENT_SECRET', default='')
-KOPOKOPO_API_KEY = config('KOPOKOPO_API_KEY', default='')
-KOPOKOPO_BASE_URL = config('KOPOKOPO_BASE_URL', default='https://api.kopokopo.com')  # Production API
-KOPOKOPO_TILL_NUMBER = config('KOPOKOPO_TILL_NUMBER', default='K5630946')  # Production till number (K prefix for API)
-MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default='5630946')  # Display till number (shown to customers)
-KOPOKOPO_ENVIRONMENT = config('KOPOKOPO_ENVIRONMENT', default='production')  # production or sandbox
+# KopoKopo credentials should be set in environment variables in production.
+#KOPOKOPO_CLIENT_ID = config('KOPOKOPO_CLIENT_ID', default='')
+#KOPOKOPO_CLIENT_SECRET = config('KOPOKOPO_CLIENT_SECRET', default='')
+#KOPOKOPO_API_KEY = config('KOPOKOPO_API_KEY', default='')
+#KOPOKOPO_BASE_URL = config('KOPOKOPO_BASE_URL', default='https://api.kopokopo.com')
+#KOPOKOPO_TILL_NUMBER = config('KOPOKOPO_TILL_NUMBER', default='')
+#MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default='5630946')
+#KOPOKOPO_ENVIRONMENT = config('KOPOKOPO_ENVIRONMENT', default='production')
 
-# Validate that production credentials are set (only in production, not during development)
-# Note: In production on PythonAnywhere, set these via environment variables
-# if KOPOKOPO_ENVIRONMENT == 'production' and not all([KOPOKOPO_CLIENT_ID, KOPOKOPO_CLIENT_SECRET, KOPOKOPO_API_KEY]):
-#     raise ValueError(
-#         "KopoKopo production credentials must be set via environment variables: "
-#         "KOPOKOPO_CLIENT_ID, KOPOKOPO_CLIENT_SECRET, KOPOKOPO_API_KEY"
-#     )
+# Set environment: 'production' or 'sandbox'
+KOPOKOPO_ENVIRONMENT = config('KOPOKOPO_ENVIRONMENT', default='production')
 
-# Africa's Talking Configuration
+if KOPOKOPO_ENVIRONMENT == 'production':
+    # PRODUCTION credentials (hardcoded temporarily for testing)
+    KOPOKOPO_CLIENT_ID = 'hDJs3s0pVvl8UdY2CV3WBb2ssa3LSTeuwQLtkoxbYLE'
+    KOPOKOPO_CLIENT_SECRET = 'actEBbMQgZdXhG2g6jBfiHrQsB6uy0bWOLPj6L1jRrg'
+    KOPOKOPO_API_KEY = '5d3fd56fbfbc3dcb3daecbb1420bd2db1269e5c4'
+    KOPOKOPO_TILL_NUMBER = '5630946'
+    KOPOKOPO_BASE_URL = 'https://api.kopokopo.com'
+else:
+    # SANDBOX credentials
+    KOPOKOPO_CLIENT_ID = 'your_sandbox_client_id'
+    KOPOKOPO_CLIENT_SECRET = 'your_sandbox_client_secret'
+    KOPOKOPO_API_KEY = 'your_sandbox_api_key'
+    KOPOKOPO_TILL_NUMBER = 'your_sandbox_till_number'
+    KOPOKOPO_BASE_URL = 'https://sandbox.kopokopo.com'
+
+# M-Pesa till number (optional, can be same as KOPOKOPO_TILL_NUMBER)
+MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default='5630946')
+
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
 AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
 AFRICASTALKING_SENDER_ID = config('AFRICASTALKING_SENDER_ID', default='PAKAHOME')
 
-# Google Maps Configuration
 GOOGLE_MAPS_API_KEY = config('GOOGLE_MAPS_API_KEY', default='AIzaSyBUE5XLUc3mCaGZRlJYDJ2TcE2ItTOQR3g')
 
-# Office Location
-OFFICE_LATITUDE = -1.2921  # Nairobi CBD approximate
+OFFICE_LATITUDE = -1.2921
 OFFICE_LONGITUDE = 36.8219
 OFFICE_ADDRESS = "Nairobi CBD, Mfangano Street, Ndaragwa Hse, Mezanine MF22"
 
-# Pricing Configuration
-PRICING_NAIROBI = 150  # KES
-PRICING_OUTSIDE_NAIROBI = 300  # KES
+PRICING_NAIROBI = 150
+PRICING_OUTSIDE_NAIROBI = 300
 
-# Celery Configuration (Optional)
 CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
-

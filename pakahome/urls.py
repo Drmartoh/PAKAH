@@ -1,6 +1,3 @@
-"""
-URL configuration for pakahome project.
-"""
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -16,8 +13,11 @@ urlpatterns = [
     path('api/payments/', include('payments.urls')),
     path('api/notifications/', include('notifications.urls')),
     path('api/maps/', include('orders.map_urls')),
-    
-    # Frontend routes - ensure CSRF cookie is set
+
+    # KopoKopo callback route
+    path('payments/kopokopo/callback/', include('payments.urls')),  # <- added
+
+    # Frontend routes
     path('', ensure_csrf_cookie(TemplateView.as_view(template_name='landing.html')), name='landing'),
     path('dashboard/', ensure_csrf_cookie(TemplateView.as_view(template_name='customer_dashboard.html')), name='customer_dashboard'),
     path('admin-dashboard/', ensure_csrf_cookie(TemplateView.as_view(template_name='admin_dashboard.html')), name='admin_dashboard'),
