@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'dashboard_base.html' %}
 
 {% block extra_css %}
 <style>
@@ -196,7 +196,9 @@
             <div class="col">
                 <h1 class="dashboard-title"><i class="fas fa-tachometer-alt"></i> My Dashboard</h1>
             </div>
-            <div class="col-auto">
+            <div class="col-auto d-flex align-items-center gap-2">
+                <a href="/" class="btn btn-sm text-white" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5);">Home</a>
+                <a href="#" class="btn btn-sm text-white" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5);" onclick="window.logout(); return false;">Logout</a>
                 <button class="new-order-btn" data-bs-toggle="modal" data-bs-target="#newOrderModal">
                     <i class="fas fa-plus"></i> New Order
                 </button>

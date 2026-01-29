@@ -166,10 +166,15 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 class DriverSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    order_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Driver
         fields = ['id', 'user', 'full_name', 'phone', 'license_number', 
                   'vehicle_type', 'vehicle_registration', 'status', 
-                  'current_latitude', 'current_longitude', 'is_active', 'created_at']
+                  'current_latitude', 'current_longitude', 'is_active', 'created_at', 'order_count']
+    
+    def get_order_count(self, obj):
+        """Get count of orders assigned to this driver"""
+        return obj.orders.count()
 

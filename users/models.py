@@ -15,6 +15,9 @@ class UserManager(BaseUserManager):
         email = self.normalize_email(email) if email else None
         
         user = self.model(phone_number=phone_number, email=email, **extra_fields)
+        # AbstractUser has unique username; set it to phone_number so DB constraint is satisfied
+        if not getattr(user, 'username', None) or getattr(user, 'username', '') == '':
+            user.username = phone_number
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -101,7 +104,7 @@ class Driver(models.Model):
     license_number = models.CharField(max_length=50, unique=True)
     vehicle_type = models.CharField(max_length=50, blank=True)
     vehicle_registration = models.CharField(max_length=50, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='offline')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
     current_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     current_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     is_active = models.BooleanField(default=True)

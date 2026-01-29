@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'dashboard_base.html' %}
 
 {% block extra_css %}
 <style>
@@ -8,71 +8,365 @@
         border-radius: 10px;
         padding: 1.5rem;
         margin-bottom: 1rem;
+        transition: transform 0.2s;
+    }
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
     }
     .stats-card h3 {
         font-size: 2rem;
         margin: 0;
     }
+    .nav-tabs .nav-link {
+        color: #333;
+        font-weight: 500;
+    }
+    .nav-tabs .nav-link.active {
+        color: #FCA311;
+        border-color: #FCA311;
+        font-weight: 600;
+    }
+    .filter-section {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    .order-status-badge {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.8rem;
+    }
+    .badge-pending { background-color: #ffc107; color: #000; }
+    .badge-assigned { background-color: #17a2b8; color: #fff; }
+    .badge-picked { background-color: #007bff; color: #fff; }
+    .badge-transit { background-color: #6c757d; color: #fff; }
+    .badge-delivered { background-color: #28a745; color: #fff; }
+    .badge-cancelled { background-color: #dc3545; color: #fff; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container my-5">
-    <h2 class="mb-4"><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h2>
+<div class="container-fluid my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h2>
+        <div class="d-flex align-items-center gap-2">
+            <a href="/" class="btn btn-outline-secondary btn-sm">Home</a>
+            <a href="#" class="btn btn-outline-secondary btn-sm" onclick="window.logout(); return false;">Logout</a>
+            <button class="btn btn-outline-secondary" onclick="exportOrders()" id="exportBtn">
+                <i class="fas fa-download"></i> Export
+            </button>
+            <button class="btn btn-primary" onclick="loadOrders()" id="refreshBtn">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
     
     <!-- Stats -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="stats-card">
-                <h6>Total Orders</h6>
+                <h6><i class="fas fa-box"></i> Total Orders</h6>
                 <h3 id="totalOrders">0</h3>
             </div>
         </div>
         <div class="col-md-3">
             <div class="stats-card">
-                <h6>Pending Assignment</h6>
+                <h6><i class="fas fa-clock"></i> Pending Assignment</h6>
                 <h3 id="pendingOrders">0</h3>
             </div>
         </div>
         <div class="col-md-3">
             <div class="stats-card">
-                <h6>In Transit</h6>
+                <h6><i class="fas fa-truck"></i> In Transit</h6>
                 <h3 id="inTransitOrders">0</h3>
             </div>
         </div>
         <div class="col-md-3">
             <div class="stats-card">
-                <h6>Total Revenue</h6>
+                <h6><i class="fas fa-money-bill-wave"></i> Total Revenue</h6>
                 <h3 id="totalRevenue">KES 0</h3>
             </div>
         </div>
     </div>
     
-    <!-- Orders Table -->
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="fas fa-list"></i> All Orders</h5>
+    <!-- Additional Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Completed Orders</h6>
+                    <h4 id="completedOrders" class="text-success">0</h4>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Tracking Code</th>
-                            <th>Customer</th>
-                            <th>Driver</th>
-                            <th>Status</th>
-                            <th>Price</th>
-                            <th>Created</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ordersTable">
-                        <tr>
-                            <td colspan="7" class="text-center">Loading...</td>
-                        </tr>
-                    </tbody>
-                </table>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Active Drivers</h6>
+                    <h4 id="activeDrivers" class="text-info">0</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Total Customers</h6>
+                    <h4 id="totalCustomers" class="text-primary">0</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Today's Orders</h6>
+                    <h4 id="todayOrders" class="text-warning">0</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-tabs mb-3" id="dashboardTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders" type="button" role="tab">
+                <i class="fas fa-box"></i> Orders
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="drivers-tab" data-bs-toggle="tab" data-bs-target="#drivers" type="button" role="tab">
+                <i class="fas fa-truck"></i> Drivers
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="customers-tab" data-bs-toggle="tab" data-bs-target="#customers" type="button" role="tab">
+                <i class="fas fa-users"></i> Customers
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab">
+                <i class="fas fa-chart-bar"></i> Analytics
+            </button>
+        </li>
+    </ul>
+    
+    <!-- Tab Content -->
+    <div class="tab-content" id="dashboardTabContent">
+        <!-- Orders Tab -->
+        <div class="tab-pane fade show active" id="orders" role="tabpanel">
+            <!-- Filters -->
+            <div class="filter-section">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Search</label>
+                        <input type="text" class="form-control" id="searchInput" placeholder="Tracking code, customer name..." onkeyup="filterOrders()">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" id="statusFilter" onchange="filterOrders()">
+                            <option value="">All Status</option>
+                            <option value="pending_payment">Pending Payment</option>
+                            <option value="pending_assignment">Pending Assignment</option>
+                            <option value="assigned">Assigned</option>
+                            <option value="accepted">Accepted</option>
+                            <option value="picked_up">Picked Up</option>
+                            <option value="in_transit">In Transit</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Date From</label>
+                        <input type="date" class="form-control" id="dateFrom" onchange="filterOrders()">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Date To</label>
+                        <input type="date" class="form-control" id="dateTo" onchange="filterOrders()">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Sort By</label>
+                        <select class="form-select" id="sortBy" onchange="filterOrders()">
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="price_high">Price: High to Low</option>
+                            <option value="price_low">Price: Low to High</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                            <i class="fas fa-times"></i> Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Orders Table -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> All Orders</h5>
+                    <span class="badge bg-primary" id="ordersCount">0 orders</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Tracking Code</th>
+                                    <th>Customer</th>
+                                    <th>Driver</th>
+                                    <th>Status</th>
+                                    <th>Price</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTable">
+                                <tr>
+                                    <td colspan="7" class="text-center">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <div class="mt-2">Loading orders...</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Drivers Tab -->
+        <div class="tab-pane fade" id="drivers" role="tabpanel">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-truck"></i> All Drivers</h5>
+                    <div>
+                        <select class="form-select form-select-sm d-inline-block" id="driverStatusFilter" style="width: auto;" onchange="loadDrivers()">
+                            <option value="">All Status</option>
+                            <option value="available">Available</option>
+                            <option value="busy">Busy</option>
+                            <option value="offline">Offline</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary ms-2" onclick="loadDrivers()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>License</th>
+                                    <th>Status</th>
+                                    <th>Orders</th>
+                                    <th>Vehicle</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="driversTable">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">Loading drivers...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Customers Tab -->
+        <div class="tab-pane fade" id="customers" role="tabpanel">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-users"></i> All Customers</h5>
+                    <div>
+                        <input type="text" class="form-control form-control-sm d-inline-block" id="customerSearch" placeholder="Search customers..." style="width: 200px;" onkeyup="loadCustomers()">
+                        <button class="btn btn-sm btn-primary ms-2" onclick="loadCustomers()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>Email</th>
+                                    <th>Total Orders</th>
+                                    <th>Total Spent</th>
+                                    <th>Joined</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customersTable">
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">Loading customers...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Analytics Tab -->
+        <div class="tab-pane fade" id="analytics" role="tabpanel">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Order Status Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="statusChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-line"></i> Revenue Trend (Last 7 Days)</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="revenueChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Driver Performance</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Driver</th>
+                                            <th>Total Orders</th>
+                                            <th>Completed</th>
+                                            <th>In Progress</th>
+                                            <th>Success Rate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="driverPerformanceTable">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">Loading performance data...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -104,67 +398,631 @@
 
 {% block extra_js %}
 <script>
-    const API_BASE = '/api';
+    console.log('Admin dashboard script loaded');
+    // API_BASE is already declared in base.html, use it directly
+    // If for some reason it's not available, fallback to '/api'
+    var apiBase;
+    if (typeof API_BASE !== 'undefined') {
+        apiBase = API_BASE;
+    } else {
+        apiBase = '/api';
+    }
+    console.log('Using API base:', apiBase);
     
-    async function loadOrders() {
-        try {
-            const response = await fetch(`${API_BASE}/orders/`, {
-                credentials: 'include'
-            });
-            const orders = await response.json();
-            
-            // Update stats
-            document.getElementById('totalOrders').textContent = orders.length;
-            document.getElementById('pendingOrders').textContent = orders.filter(o => o.status === 'pending_assignment').length;
-            document.getElementById('inTransitOrders').textContent = orders.filter(o => o.status === 'in_transit' || o.status === 'picked_up').length;
-            
-            const totalRevenue = orders
-                .filter(o => o.payment && o.payment.status === 'completed')
-                .reduce((sum, o) => sum + parseFloat(o.price), 0);
-            document.getElementById('totalRevenue').textContent = `KES ${totalRevenue.toFixed(0)}`;
-            
-            // Update table
-            const tbody = document.getElementById('ordersTable');
-            if (orders.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No orders found</td></tr>';
-                return;
+    // Helper to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Store all orders for filtering
+    let allOrders = [];
+    let filteredOrders = [];
+    
+    // Filter and search orders
+    function filterOrders() {
+        const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+        const statusFilter = document.getElementById('statusFilter')?.value || '';
+        const dateFrom = document.getElementById('dateFrom')?.value || '';
+        const dateTo = document.getElementById('dateTo')?.value || '';
+        const sortBy = document.getElementById('sortBy')?.value || 'newest';
+        
+        filteredOrders = allOrders.filter(order => {
+            // Search filter
+            if (searchTerm) {
+                const trackingMatch = (order.tracking_code || '').toLowerCase().includes(searchTerm);
+                const customerMatch = (order.customer?.full_name || '').toLowerCase().includes(searchTerm);
+                const driverMatch = (order.driver?.full_name || '').toLowerCase().includes(searchTerm);
+                if (!trackingMatch && !customerMatch && !driverMatch) {
+                    return false;
+                }
             }
             
-            tbody.innerHTML = orders.map(order => `
-                <tr>
-                    <td><a href="/track/${order.tracking_code}/" class="text-primary">${order.tracking_code}</a></td>
-                    <td>${order.customer?.full_name || 'N/A'}</td>
-                    <td>${order.driver?.full_name || 'Not Assigned'}</td>
-                    <td><span class="badge bg-secondary">${order.status.replace('_', ' ').toUpperCase()}</span></td>
-                    <td>KES ${order.price}</td>
-                    <td>${new Date(order.created_at).toLocaleDateString()}</td>
-                    <td>
-                        ${order.status === 'pending_assignment' ? 
-                            `<button class="btn btn-sm btn-primary" onclick="openAssignModal(${order.id})">Assign Driver</button>` :
-                            `<a href="/track/${order.tracking_code}/" class="btn btn-sm btn-outline-primary">View</a>`
-                        }
-                    </td>
-                </tr>
-            `).join('');
-        } catch (error) {
-            console.error('Error loading orders:', error);
+            // Status filter
+            if (statusFilter && order.status !== statusFilter) {
+                return false;
+            }
+            
+            // Date filters
+            if (dateFrom) {
+                const orderDate = new Date(order.created_at);
+                const fromDate = new Date(dateFrom);
+                if (orderDate < fromDate) {
+                    return false;
+                }
+            }
+            if (dateTo) {
+                const orderDate = new Date(order.created_at);
+                const toDate = new Date(dateTo);
+                toDate.setHours(23, 59, 59, 999); // End of day
+                if (orderDate > toDate) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+        
+        // Sort orders
+        filteredOrders.sort((a, b) => {
+            switch(sortBy) {
+                case 'oldest':
+                    return new Date(a.created_at) - new Date(b.created_at);
+                case 'price_high':
+                    return parseFloat(b.price || 0) - parseFloat(a.price || 0);
+                case 'price_low':
+                    return parseFloat(a.price || 0) - parseFloat(b.price || 0);
+                case 'newest':
+                default:
+                    return new Date(b.created_at) - new Date(a.created_at);
+            }
+        });
+        
+        renderOrdersTable();
+        document.getElementById('ordersCount').textContent = `${filteredOrders.length} orders`;
+    }
+    
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
+        document.getElementById('sortBy').value = 'newest';
+        filterOrders();
+    }
+    
+    function getStatusBadgeClass(status) {
+        const statusMap = {
+            'pending_payment': 'badge-pending',
+            'pending_assignment': 'badge-pending',
+            'assigned': 'badge-assigned',
+            'accepted': 'badge-assigned',
+            'picked_up': 'badge-picked',
+            'in_transit': 'badge-transit',
+            'delivered': 'badge-delivered',
+            'cancelled': 'badge-cancelled'
+        };
+        return statusMap[status] || 'bg-secondary';
+    }
+    
+    function renderOrdersTable() {
+        const tbody = document.getElementById('ordersTable');
+        const ordersToRender = filteredOrders.length > 0 ? filteredOrders : allOrders;
+        
+        if (ordersToRender.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No orders found</td></tr>';
+            return;
+        }
+        
+        try {
+            tbody.innerHTML = ordersToRender.map(order => {
+                const trackingCode = order.tracking_code || 'N/A';
+                const customerName = (order.customer && order.customer.full_name) ? order.customer.full_name : 'N/A';
+                const driverName = (order.driver && order.driver.full_name) ? order.driver.full_name : 'Not Assigned';
+                const status = (order.status || '').replace(/_/g, ' ').toUpperCase();
+                const price = order.price != null ? order.price : '0';
+                const createdDate = order.created_at ? new Date(order.created_at).toLocaleDateString() : '';
+                const orderId = order.id || 0;
+                const statusClass = getStatusBadgeClass(order.status);
+                const actionButton = order.status === 'pending_assignment' ?
+                    `<button class="btn btn-sm btn-primary" onclick="openAssignModal(${orderId})">Assign Driver</button>` :
+                    `<a href="/track/${trackingCode}/" class="btn btn-sm btn-outline-primary">View</a>`;
+                
+                return `
+                    <tr>
+                        <td><a href="/track/${trackingCode}/" class="text-primary fw-bold">${trackingCode}</a></td>
+                        <td>${customerName}</td>
+                        <td>${driverName}</td>
+                        <td><span class="badge ${statusClass} order-status-badge">${status}</span></td>
+                        <td>KES ${price}</td>
+                        <td>${createdDate}</td>
+                        <td>${actionButton}</td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (renderError) {
+            console.error('Error rendering orders table:', renderError);
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">
+                Error rendering table: ${renderError.message}
+            </td></tr>`;
         }
     }
     
-    async function loadAvailableDrivers() {
+    async function loadOrders() {
+        console.log('loadOrders() called');
+        console.log('Current URL:', window.location.href);
+        console.log('API Base:', apiBase);
+        
+        const btn = document.getElementById('refreshBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        }
+        
+        // Update loading state in table
+        const tbody = document.getElementById('ordersTable');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><div class="mt-2">Loading orders...</div></td></tr>';
+        }
+        
         try {
-            const response = await fetch(`${API_BASE}/drivers/available/`, {
+            let orders = [];
+            let url = `${apiBase}/orders/`;
+            let pageCount = 0;
+            const maxPages = 50; // Safety limit
+            
+            console.log('Fetching from:', url);
+            
+            while (url && pageCount < maxPages) {
+                pageCount++;
+                console.log(`Loading orders page ${pageCount} from: ${url}`);
+                
+                const fetchOptions = {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                };
+                
+                console.log('Fetch options:', fetchOptions);
+                const response = await fetch(url, fetchOptions);
+                console.log('Response status:', response.status);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                
+                if (response.status === 401 || response.status === 403) {
+                    console.error('Unauthorized - redirecting to login');
+                    window.location.href = '/?login=1';
+                    return;
+                }
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`API error ${response.status}:`, errorText);
+                    throw new Error(`Failed to load orders: ${response.status} ${errorText.substring(0, 100)}`);
+                }
+                
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    const text = await response.text();
+                    console.error('Failed to parse JSON:', text);
+                    throw new Error('Invalid JSON response from server');
+                }
+                
+                console.log('API response:', data);
+                const pageResults = Array.isArray(data) ? data : (data.results || []);
+                console.log(`Page ${pageCount}: ${pageResults.length} orders`);
+                orders = orders.concat(pageResults);
+                
+                // Check for next page (DRF returns full URL or null)
+                url = data.next || null;
+                // If next is a relative URL, convert to absolute
+                if (url && url.startsWith('/')) {
+                    const protocol = window.location.protocol;
+                    const host = window.location.host;
+                    url = `${protocol}//${host}${url}`;
+                }
+            }
+            
+            console.log(`Total orders loaded: ${orders.length}`);
+            
+            // Store orders for filtering
+            allOrders = orders;
+            filteredOrders = orders;
+            
+            // Update stats
+            updateStats(orders);
+            
+            // Render table
+            renderOrdersTable();
+            document.getElementById('ordersCount').textContent = `${orders.length} orders`;
+        } catch (error) {
+            console.error('Error loading orders:', error);
+            console.error('Error stack:', error.stack);
+            const tbody = document.getElementById('ordersTable');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">
+                    <strong>Error loading orders:</strong><br>
+                    ${error.message || 'Unknown error'}<br>
+                    <small>Check browser console (F12) for details</small><br>
+                    <button class="btn btn-sm btn-primary mt-2" onclick="loadOrders()">Retry</button>
+                </td></tr>`;
+            }
+            // Also update stats to show error
+            try {
+                document.getElementById('totalOrders').textContent = 'Error';
+                document.getElementById('pendingOrders').textContent = 'Error';
+                document.getElementById('inTransitOrders').textContent = 'Error';
+                document.getElementById('totalRevenue').textContent = 'Error';
+            } catch (e) {
+                console.error('Error updating stats:', e);
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh Orders';
+            }
+        }
+    }
+    
+    // Update statistics
+    function updateStats(orders) {
+        const totalOrders = orders.length;
+        const pendingOrders = orders.filter(o => o.status === 'pending_assignment').length;
+        const inTransitOrders = orders.filter(o => o.status === 'in_transit' || o.status === 'picked_up').length;
+        const completedOrders = orders.filter(o => o.status === 'delivered').length;
+        
+        const totalRevenue = orders
+            .filter(o => (o.payment_status === 'completed') || o.status === 'delivered')
+            .reduce((sum, o) => sum + parseFloat(o.price || 0), 0);
+        
+        // Today's orders
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayOrders = orders.filter(o => {
+            const orderDate = new Date(o.created_at);
+            orderDate.setHours(0, 0, 0, 0);
+            return orderDate.getTime() === today.getTime();
+        }).length;
+        
+        document.getElementById('totalOrders').textContent = totalOrders;
+        document.getElementById('pendingOrders').textContent = pendingOrders;
+        document.getElementById('inTransitOrders').textContent = inTransitOrders;
+        document.getElementById('totalRevenue').textContent = `KES ${Math.round(totalRevenue)}`;
+        document.getElementById('completedOrders').textContent = completedOrders;
+        document.getElementById('todayOrders').textContent = todayOrders;
+        
+        // Load additional stats
+        loadAdditionalStats();
+    }
+    
+    // Load additional stats (drivers, customers)
+    async function loadAdditionalStats() {
+        try {
+            // Load drivers count
+            const driversResponse = await fetch(`${apiBase}/drivers/`, {
                 credentials: 'include'
             });
-            const drivers = await response.json();
+            if (driversResponse.ok) {
+                const drivers = await driversResponse.json();
+                const activeDrivers = Array.isArray(drivers) ? drivers.filter(d => d.is_active).length : 0;
+                document.getElementById('activeDrivers').textContent = activeDrivers;
+            }
             
-            const select = document.getElementById('driverSelect');
-            select.innerHTML = '<option value="">Select a driver</option>' +
-                drivers.map(driver => 
-                    `<option value="${driver.id}">${driver.full_name} - ${driver.phone}</option>`
-                ).join('');
+            // Load customers count
+            const customersResponse = await fetch(`${apiBase}/auth/customers/`, {
+                credentials: 'include'
+            });
+            if (customersResponse.ok) {
+                const customers = await customersResponse.json();
+                const totalCustomers = Array.isArray(customers) ? customers.length : 0;
+                document.getElementById('totalCustomers').textContent = totalCustomers;
+            } else {
+                // Fallback: count from orders
+                const uniqueCustomers = new Set(allOrders.map(o => o.customer?.id).filter(Boolean));
+                document.getElementById('totalCustomers').textContent = uniqueCustomers.size;
+            }
+        } catch (error) {
+            console.error('Error loading additional stats:', error);
+        }
+    }
+    
+    // Load drivers
+    async function loadDrivers() {
+        const tbody = document.getElementById('driversTable');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Loading drivers...</td></tr>';
+        
+        try {
+            const response = await fetch(`${apiBase}/drivers/`, {
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to load drivers: ${response.status}`);
+            }
+            
+            const drivers = await response.json();
+            const driversList = Array.isArray(drivers) ? drivers : (drivers.results || []);
+            const statusFilter = document.getElementById('driverStatusFilter')?.value || '';
+            
+            let filteredDrivers = driversList;
+            if (statusFilter) {
+                filteredDrivers = driversList.filter(d => d.status === statusFilter);
+            }
+            
+            if (filteredDrivers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No drivers found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filteredDrivers.map(driver => {
+                const statusClass = driver.status === 'available' ? 'success' : 
+                                   driver.status === 'busy' ? 'warning' : 'secondary';
+                const orderCount = driver.order_count || 0;
+                const vehicleInfo = driver.vehicle_type ? 
+                    `${driver.vehicle_type}${driver.vehicle_registration ? ' - ' + driver.vehicle_registration : ''}` : 
+                    'N/A';
+                return `
+                    <tr>
+                        <td><strong>${driver.full_name || 'N/A'}</strong></td>
+                        <td>${driver.phone || 'N/A'}</td>
+                        <td>${driver.license_number || 'N/A'}</td>
+                        <td><span class="badge bg-${statusClass}">${(driver.status || '').toUpperCase()}</span></td>
+                        <td><span class="badge bg-info">${orderCount}</span></td>
+                        <td>${vehicleInfo}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewDriverDetails(${driver.id})">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         } catch (error) {
             console.error('Error loading drivers:', error);
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error loading drivers: ${error.message}</td></tr>`;
+        }
+    }
+    
+    // Load customers
+    async function loadCustomers() {
+        const tbody = document.getElementById('customersTable');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Loading customers...</td></tr>';
+        
+        try {
+            const response = await fetch(`${apiBase}/auth/customers/`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to load customers: ${response.status}`);
+            }
+            
+            const customers = await response.json();
+            const customersList = Array.isArray(customers) ? customers : (customers.results || []);
+            const searchTerm = document.getElementById('customerSearch')?.value.toLowerCase() || '';
+            
+            let filteredCustomers = customersList;
+            if (searchTerm) {
+                filteredCustomers = customersList.filter(c => 
+                    (c.full_name || '').toLowerCase().includes(searchTerm) ||
+                    (c.phone || '').includes(searchTerm) ||
+                    (c.email || '').toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            if (filteredCustomers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No customers found</td></tr>';
+                return;
+            }
+            
+            // Get order counts and totals for each customer from allOrders
+            const customerStats = filteredCustomers.map(customer => {
+                const customerOrders = allOrders.filter(o => o.customer && o.customer.id === customer.id);
+                const totalSpent = customerOrders
+                    .filter(o => o.status === 'delivered' || o.payment_status === 'completed')
+                    .reduce((sum, o) => sum + parseFloat(o.price || 0), 0);
+                return {
+                    ...customer,
+                    orderCount: customerOrders.length,
+                    totalSpent: totalSpent
+                };
+            });
+            
+            tbody.innerHTML = customerStats.map(customer => {
+                const joinedDate = customer.created_at ? new Date(customer.created_at).toLocaleDateString() : 'N/A';
+                return `
+                    <tr>
+                        <td>${customer.full_name || 'N/A'}</td>
+                        <td>${customer.phone || 'N/A'}</td>
+                        <td>${customer.email || 'N/A'}</td>
+                        <td><span class="badge bg-primary">${customer.orderCount || 0}</span></td>
+                        <td>KES ${Math.round(customer.totalSpent || 0)}</td>
+                        <td>${joinedDate}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewCustomerDetails(${customer.id})">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Error loading customers:', error);
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error loading customers: ${error.message}</td></tr>`;
+        }
+    }
+    
+    // View driver details
+    function viewDriverDetails(driverId) {
+        alert(`Driver details for ID: ${driverId}\n\nThis feature will show:\n- Driver profile\n- Order history\n- Performance metrics\n- Status history`);
+        // TODO: Implement driver details modal
+    }
+    
+    // View customer details
+    function viewCustomerDetails(customerId) {
+        alert(`Customer details for ID: ${customerId}\n\nThis feature will show:\n- Customer profile\n- Order history\n- Payment history\n- Contact information`);
+        // TODO: Implement customer details modal
+    }
+    
+    // Export orders to CSV
+    function exportOrders() {
+        const ordersToExport = filteredOrders.length > 0 ? filteredOrders : allOrders;
+        if (ordersToExport.length === 0) {
+            alert('No orders to export');
+            return;
+        }
+        
+        // Create CSV content
+        const headers = ['Tracking Code', 'Customer', 'Driver', 'Status', 'Price', 'Created', 'Pickup Address', 'Delivery Address'];
+        const rows = ordersToExport.map(order => [
+            order.tracking_code || '',
+            (order.customer && order.customer.full_name) || '',
+            (order.driver && order.driver.full_name) || 'Not Assigned',
+            (order.status || '').replace(/_/g, ' '),
+            order.price || '0',
+            order.created_at ? new Date(order.created_at).toLocaleDateString() : '',
+            order.pickup_address || '',
+            order.delivery_address || ''
+        ]);
+        
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+        
+        // Download CSV
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `orders_export_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }
+    
+    // Load analytics
+    async function loadAnalytics() {
+        if (allOrders.length === 0) {
+            await loadOrders();
+        }
+        
+        // Status distribution chart
+        const statusCounts = {};
+        allOrders.forEach(order => {
+            const status = order.status || 'unknown';
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+        
+        // Simple text-based analytics (can be enhanced with Chart.js)
+        const driverPerformance = {};
+        allOrders.forEach(order => {
+            if (order.driver && order.driver.id) {
+                const driverId = order.driver.id;
+                if (!driverPerformance[driverId]) {
+                    driverPerformance[driverId] = {
+                        name: order.driver.full_name,
+                        total: 0,
+                        completed: 0,
+                        inProgress: 0
+                    };
+                }
+                driverPerformance[driverId].total++;
+                if (order.status === 'delivered') {
+                    driverPerformance[driverId].completed++;
+                } else if (['assigned', 'accepted', 'picked_up', 'in_transit'].includes(order.status)) {
+                    driverPerformance[driverId].inProgress++;
+                }
+            }
+        });
+        
+        // Render driver performance table
+        const perfTable = document.getElementById('driverPerformanceTable');
+        if (perfTable) {
+            const drivers = Object.values(driverPerformance);
+            if (drivers.length === 0) {
+                perfTable.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No driver performance data available</td></tr>';
+            } else {
+                perfTable.innerHTML = drivers.map(driver => {
+                    const successRate = driver.total > 0 ? Math.round((driver.completed / driver.total) * 100) : 0;
+                    return `
+                        <tr>
+                            <td>${driver.name}</td>
+                            <td>${driver.total}</td>
+                            <td><span class="badge bg-success">${driver.completed}</span></td>
+                            <td><span class="badge bg-warning">${driver.inProgress}</span></td>
+                            <td><span class="badge bg-info">${successRate}%</span></td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+    }
+    
+    // Tab change handlers
+    document.addEventListener('DOMContentLoaded', function() {
+        const tabs = document.querySelectorAll('#dashboardTabs button[data-bs-toggle="tab"]');
+        tabs.forEach(tab => {
+            tab.addEventListener('shown.bs.tab', function(event) {
+                const target = event.target.getAttribute('data-bs-target');
+                if (target === '#drivers') {
+                    loadDrivers();
+                } else if (target === '#customers') {
+                    loadCustomers();
+                } else if (target === '#analytics') {
+                    loadAnalytics();
+                }
+            });
+        });
+    });
+    
+    // Make loadOrders globally accessible for the refresh button
+    window.loadOrders = loadOrders;
+    
+    async function loadAvailableDrivers() {
+        try {
+            const response = await fetch(`${apiBase}/drivers/available/`, {
+                credentials: 'include'
+            });
+            if (response.status === 401 || response.status === 403) {
+                return;
+            }
+            const drivers = await response.json();
+            const list = Array.isArray(drivers) ? drivers : (drivers.results || []);
+            const select = document.getElementById('driverSelect');
+            select.innerHTML = '<option value="">Select a driver</option>' +
+                list.map(driver =>
+                    `<option value="${driver.id}">${driver.full_name || ''} - ${driver.phone || ''}</option>`
+                ).join('');
+            if (list.length === 0) {
+                select.innerHTML = '<option value="">No available drivers</option>';
+            }
+        } catch (error) {
+            console.error('Error loading drivers:', error);
+            document.getElementById('driverSelect').innerHTML = '<option value="">Error loading drivers</option>';
         }
     }
     
@@ -184,9 +1042,13 @@
         }
         
         try {
-            const response = await fetch(`${API_BASE}/drivers/assign/${orderId}/`, {
+            const csrftoken = getCookie('csrftoken');
+            const response = await fetch(`${apiBase}/drivers/assign/${orderId}/`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken || ''
+                },
                 credentials: 'include',
                 body: JSON.stringify({ driver_id: parseInt(driverId) })
             });
@@ -204,7 +1066,72 @@
         }
     }
     
-    loadOrders();
+    // Ensure loadOrders is available globally for the refresh button
+    window.loadOrders = loadOrders;
+    
+    // Load orders when page loads
+    // Django view already handles admin authentication, so we can load directly
+    console.log('Admin dashboard script initialized');
+    console.log('API Base:', apiBase);
+    console.log('API_BASE from base.html:', typeof API_BASE !== 'undefined' ? API_BASE : 'undefined');
+    console.log('Document ready state:', document.readyState);
+    console.log('Orders table element:', document.getElementById('ordersTable'));
+    
+    // Auto-refresh orders every 30 seconds
+    let autoRefreshInterval = null;
+    function startAutoRefresh() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+        }
+        autoRefreshInterval = setInterval(() => {
+            console.log('Auto-refreshing orders...');
+            loadOrders();
+        }, 30000); // 30 seconds
+    }
+    
+    function stopAutoRefresh() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
+    }
+    
+    // Function to initialize dashboard
+    function initDashboard() {
+        console.log('Initializing dashboard...');
+        const tbody = document.getElementById('ordersTable');
+        if (!tbody) {
+            console.error('Orders table not found! Retrying in 500ms...');
+            setTimeout(initDashboard, 500);
+            return;
+        }
+        console.log('Orders table found, loading orders...');
+        loadOrders();
+        startAutoRefresh();
+    }
+    
+    // Stop auto-refresh when page is hidden
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            stopAutoRefresh();
+        } else {
+            startAutoRefresh();
+            loadOrders(); // Refresh when page becomes visible
+        }
+    });
+    
+    // Start initialization
+    if (document.readyState === 'loading') {
+        console.log('Document still loading, waiting for DOMContentLoaded...');
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded fired');
+            initDashboard();
+        });
+    } else {
+        console.log('Document already loaded, initializing immediately...');
+        // Small delay to ensure all scripts are loaded
+        setTimeout(initDashboard, 100);
+    }
 </script>
 {% endblock %}
 

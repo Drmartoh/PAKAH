@@ -16,7 +16,7 @@ class DriverListView(generics.ListAPIView):
     def get_queryset(self):
         if self.request.user.role != 'admin':
             return Driver.objects.none()
-        return Driver.objects.filter(is_active=True)
+        return Driver.objects.filter(is_active=True).order_by('id')
 
 
 @api_view(['GET'])
@@ -86,30 +86,84 @@ def assign_driver(request, order_id):
     })
 
 
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 @permission_classes([permissions.IsAuthenticated])
 def update_driver_status(request, driver_id):
-    """Update driver status (driver only)"""
+    """Get or update driver status (driver only)"""
     user = request.user
     if user.role != 'driver':
         return Response(
-            {'error': 'Only drivers can update their status'}, 
+            {'error': 'Only drivers can access their status'}, 
             status=status.HTTP_403_FORBIDDEN
         )
     
     try:
         driver = user.driver_profile
-        if driver.id != driver_id:
-            return Response(
-                {'error': 'Not authorized'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
+        # Don't check driver_id - we already verified it's a driver user
+        # The driver can only access their own profile anyway
     except Driver.DoesNotExist:
         return Response(
             {'error': 'Driver profile not found'}, 
             status=status.HTTP_404_NOT_FOUND
         )
     
+    # GET request - return current status
+    if request.method == 'GET':
+        return Response({
+            'driver': DriverSerializer(driver).data
+        })
+    
+    # POST request - update status
+    new_status = request.data.get('status')
+    latitude = request.data.get('latitude')
+    longitude = request.data.get('longitude')
+    
+    if new_status:
+        if new_status not in ['available', 'busy', 'offline']:
+            return Response(
+                {'error': 'Invalid status'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        driver.status = new_status
+    
+    if latitude and longitude:
+        driver.current_latitude = latitude
+        driver.current_longitude = longitude
+    
+    driver.save()
+    
+    return Response({
+        'message': 'Status updated successfully',
+        'driver': DriverSerializer(driver).data
+    })
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([permissions.IsAuthenticated])
+def my_driver_status(request):
+    """Get or update current driver's status (simpler endpoint without driver_id)"""
+    user = request.user
+    if user.role != 'driver':
+        return Response(
+            {'error': 'Only drivers can access their status'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    try:
+        driver = user.driver_profile
+    except Driver.DoesNotExist:
+        return Response(
+            {'error': 'Driver profile not found'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # GET request - return current status
+    if request.method == 'GET':
+        return Response({
+            'driver': DriverSerializer(driver).data
+        })
+    
+    # POST request - update status
     new_status = request.data.get('status')
     latitude = request.data.get('latitude')
     longitude = request.data.get('longitude')

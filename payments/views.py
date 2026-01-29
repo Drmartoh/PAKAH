@@ -3,6 +3,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from .models import Payment
 from .serializers import PaymentSerializer, STKPushSerializer
 from .services import initiate_stk_push, validate_webhook_signature, process_incoming_payment_result
@@ -76,9 +78,12 @@ def initiate_payment(request):
             status='pending'
         )
     
-    # Generate callback URL - use PythonAnywhere domain for production, localhost for sandbox
+    # Generate callback URL: production uses configured URL (pakahomeparceldelivery.website), else request host
     if settings.KOPOKOPO_ENVIRONMENT == 'production':
-        callback_url = "https://pakaapp.pythonanywhere.com/api/payments/callback/"
+        callback_url = getattr(
+            settings, 'KOPOKOPO_CALLBACK_URL',
+            'https://pakahomeparceldelivery.website/api/payments/callback/'
+        )
     else:
         # For sandbox, use the request host (works for localhost and ngrok)
         callback_url = f"{request.scheme}://{request.get_host()}/api/payments/callback/"
@@ -128,10 +133,12 @@ def initiate_payment(request):
     }, status=status.HTTP_200_OK)
 
 
+@csrf_exempt
+@require_http_methods(['POST'])
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def payment_callback(request):
-    """KopoKopo payment callback endpoint"""
+    """KopoKopo payment callback endpoint - must be CSRF-exempt for webhook POST from KopoKopo"""
     # Get raw request body for signature validation
     request_body = request.body.decode('utf-8')
     

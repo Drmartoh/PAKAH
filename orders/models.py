@@ -51,6 +51,9 @@ class Order(models.Model):
     picked_up_at = models.DateTimeField(null=True, blank=True)
     delivered_at = models.DateTimeField(null=True, blank=True)
     
+    # Driver feedback
+    driver_feedback = models.TextField(blank=True, null=True, help_text='Feedback from driver after delivery')
+    
     def save(self, *args, **kwargs):
         if not self.tracking_code:
             self.tracking_code = self.generate_tracking_code()

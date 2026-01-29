@@ -106,6 +106,36 @@ def current_user(request):
     })
 
 
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def list_customers(request):
+    """List all customers (admin only)"""
+    if request.user.role != 'admin':
+        return Response(
+            {'error': 'Only admins can view customers'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    customers = Customer.objects.all().select_related('user').order_by('-created_at')
+    serializer = CustomerSerializer(customers, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def list_drivers(request):
+    """List all drivers (admin only)"""
+    if request.user.role != 'admin':
+        return Response(
+            {'error': 'Only admins can view drivers'}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    drivers = Driver.objects.all().select_related('user').order_by('-created_at')
+    serializer = DriverSerializer(drivers, many=True)
+    return Response(serializer.data)
+
+
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def delete_account(request):

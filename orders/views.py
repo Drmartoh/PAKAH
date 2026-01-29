@@ -25,7 +25,7 @@ class OrderListCreateView(generics.ListCreateAPIView):
             except (Customer.DoesNotExist, AttributeError):
                 return Order.objects.none()
         elif user.role == 'admin':
-            return Order.objects.all().select_related('customer', 'driver').prefetch_related('tracking_logs').order_by('-created_at')
+            return Order.objects.all().select_related('customer', 'driver', 'payment').prefetch_related('tracking_logs').order_by('-created_at')
         elif user.role == 'driver':
             try:
                 driver = user.driver_profile
@@ -171,6 +171,7 @@ def update_order_status(request, order_id):
     
     new_status = request.data.get('status')
     description = request.data.get('description', '')
+    feedback = request.data.get('feedback', '')
     
     if not new_status:
         return Response(
@@ -194,7 +195,7 @@ def update_order_status(request, order_id):
                 status=status.HTTP_403_FORBIDDEN
             )
         # Drivers can only update to specific statuses
-        if new_status not in ['accepted', 'picked_up', 'delivered']:
+        if new_status not in ['accepted', 'picked_up', 'in_transit', 'delivered']:
             return Response(
                 {'error': 'Invalid status for driver'}, 
                 status=status.HTTP_400_BAD_REQUEST
@@ -210,6 +211,9 @@ def update_order_status(request, order_id):
     elif new_status == 'delivered':
         from django.utils import timezone
         order.delivered_at = timezone.now()
+        # Save feedback if provided
+        if feedback:
+            order.driver_feedback = feedback
     
     order.save()
     

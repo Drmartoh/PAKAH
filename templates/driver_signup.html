@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Driver Sign Up - PAKA HOME{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header" style="background: linear-gradient(135deg, #FCA311 0%, #4A90E2 100%); color: white;">
+                    <h4 class="mb-0"><i class="fas fa-truck"></i> Driver Registration</h4>
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-muted mb-4">Create your driver account. After signing up you will be taken to your driver dashboard.</p>
+                    <form id="driverSignupForm">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number <span class="text-danger">*</span></label>
+                            <input type="tel" class="form-control" name="phone" placeholder="e.g. 0712345678 or 254712345678" required>
+                            <small class="text-muted">This will be your login</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">4-Digit PIN <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" name="pin" maxlength="4" pattern="[0-9]{4}" placeholder="1234" required>
+                            <small class="text-muted">Choose a 4-digit PIN (numbers only)</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="full_name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email <small class="text-muted">(Optional)</small></label>
+                            <input type="email" class="form-control" name="email" placeholder="your@email.com">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">License Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="license_number" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Vehicle Type <small class="text-muted">(Optional)</small></label>
+                            <input type="text" class="form-control" name="vehicle_type" placeholder="e.g. Motorcycle, Van">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Vehicle Registration <small class="text-muted">(Optional)</small></label>
+                            <input type="text" class="form-control" name="vehicle_registration" placeholder="e.g. KCA 123A">
+                        </div>
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="driverTermsCheckbox" required>
+                                <label class="form-check-label" for="driverTermsCheckbox">
+                                    I agree to the <a href="/terms/" target="_blank">Terms of Use</a>
+                                </label>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 btn-lg">
+                            <i class="fas fa-user-plus"></i> Create Driver Account
+                        </button>
+                    </form>
+                    <hr class="my-4">
+                    <p class="text-center text-muted mb-0">
+                        Already have an account? <a href="/?login=1">Sign In</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const API_BASE = '/api';
+    const form = document.getElementById('driverSignupForm');
+    if (!form) return;
+
+    function getNext() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('next') || '/driver-dashboard/';
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(form);
+        let data = Object.fromEntries(formData);
+        if (data.pin && data.pin.length !== 4) {
+            alert('PIN must be exactly 4 digits');
+            return;
+        }
+        if (!document.getElementById('driverTermsCheckbox').checked) {
+            alert('Please accept the Terms of Use');
+            return;
+        }
+        if (!data.email || data.email.trim() === '') delete data.email;
+        if (!data.vehicle_type || data.vehicle_type.trim() === '') delete data.vehicle_type;
+        if (!data.vehicle_registration || data.vehicle_registration.trim() === '') delete data.vehicle_registration;
+
+        try {
+            const regRes = await fetch(API_BASE + '/auth/register/driver/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || document.cookie.replace(/(?:(?:^|.*;\s*)csrftoken\s*=\s*([^;]*).*$)|^.*$/, '$1') || ''
+                },
+                credentials: 'include',
+                body: JSON.stringify(data)
+            });
+            let regResult;
+            try {
+                regResult = await regRes.json();
+            } catch (_) {
+                regResult = {};
+            }
+            if (!regRes.ok) {
+                const msg = formatApiError(regResult);
+                alert(msg);
+                return;
+            }
+            // Auto-login and redirect
+            const loginRes = await fetch(API_BASE + '/auth/login/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || document.cookie.replace(/(?:(?:^|.*;\s*)csrftoken\s*=\s*([^;]*).*$)|^.*$/, '$1') || ''
+                },
+                credentials: 'include',
+                body: JSON.stringify({ phone: data.phone, pin: data.pin })
+            });
+            let loginResult;
+            try {
+                loginResult = await loginRes.json();
+            } catch (_) {
+                loginResult = {};
+            }
+            if (loginRes.ok) {
+                window.location.href = getNext();
+            } else {
+                alert('Account created. Please sign in.');
+                window.location.href = '/?login=1';
+            }
+        } catch (err) {
+            console.error(err);
+            alert('An error occurred. Please try again. Check the console for details.');
+        }
+    });
+
+    function formatApiError(obj) {
+        if (!obj) return 'Registration failed.';
+        if (typeof obj === 'string') return obj;
+        if (obj.detail) return Array.isArray(obj.detail) ? obj.detail.join(' ') : obj.detail;
+        if (obj.error) return obj.error;
+        if (obj.messages && obj.messages.length) return obj.messages.join('\n');
+        const parts = [];
+        for (const k of Object.keys(obj)) {
+            const v = obj[k];
+            if (Array.isArray(v)) parts.push(v.join(' '));
+            else if (typeof v === 'string') parts.push(v);
+        }
+        return parts.length ? parts.join('\n') : 'Registration failed. Please check your details.';
+    }
+})();
+</script>
+{% endblock %}

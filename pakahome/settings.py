@@ -14,7 +14,7 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 # allow local dev and your PythonAnywhere subdomain by default
 ALLOWED_HOSTS = config(
     'ALLOWED_HOSTS',
-    default='pakahomeparceldelivery.website,www.pakahomeparceldelivery.website,pakahomedeliveries.co.ke,www.pakahomedeliveries.co.ke,pakaapp.pythonanywhere.com,localhost,127.0.0.1'
+    default='pakahomeparceldelivery.website,www.pakahomeparceldelivery.website,pakahomedeliveries.co.ke,www.pakahomedeliveries.co.ke,pakaapp.pythonanywhere.com,localhost,127.0.0.1,testserver'
 ).split(',')
 
 INSTALLED_APPS = [
@@ -158,6 +158,13 @@ else:
 
 # M-Pesa till number (optional, can be same as KOPOKOPO_TILL_NUMBER)
 MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default='5630946')
+
+# KopoKopo webhook callback URL (must be HTTPS in production, registered with KopoKopo)
+# Production: pakahomeparceldelivery.website
+KOPOKOPO_CALLBACK_URL = config(
+    'KOPOKOPO_CALLBACK_URL',
+    default='https://pakahomeparceldelivery.website/api/payments/callback/'
+)
 
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
 AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')

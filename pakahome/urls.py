@@ -5,6 +5,8 @@ from django.conf.urls.static import static
 from django.views.generic import TemplateView
 from django.views.decorators.csrf import ensure_csrf_cookie
 
+from . import views as pakahome_views
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')),
@@ -15,13 +17,14 @@ urlpatterns = [
     path('api/maps/', include('orders.map_urls')),
 
     # KopoKopo callback route
-    path('payments/kopokopo/callback/', include('payments.urls')),  # <- added
+    path('payments/kopokopo/callback/', include('payments.urls')),
 
     # Frontend routes
     path('', ensure_csrf_cookie(TemplateView.as_view(template_name='landing.html')), name='landing'),
+    path('register/driver/', pakahome_views.driver_signup_view, name='driver_signup'),
     path('dashboard/', ensure_csrf_cookie(TemplateView.as_view(template_name='customer_dashboard.html')), name='customer_dashboard'),
-    path('admin-dashboard/', ensure_csrf_cookie(TemplateView.as_view(template_name='admin_dashboard.html')), name='admin_dashboard'),
-    path('driver-dashboard/', ensure_csrf_cookie(TemplateView.as_view(template_name='driver_dashboard.html')), name='driver_dashboard'),
+    path('admin-dashboard/', pakahome_views.admin_dashboard_view, name='admin_dashboard'),
+    path('driver-dashboard/', pakahome_views.driver_dashboard_view, name='driver_dashboard'),
     path('track/<str:tracking_code>/', ensure_csrf_cookie(TemplateView.as_view(template_name='tracking.html')), name='tracking'),
     path('terms/', ensure_csrf_cookie(TemplateView.as_view(template_name='terms.html')), name='terms'),
     path('careers/', ensure_csrf_cookie(TemplateView.as_view(template_name='careers.html')), name='careers'),
