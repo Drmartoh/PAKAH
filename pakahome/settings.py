@@ -158,6 +158,9 @@ else:
 
 # M-Pesa till for display (customer dashboard, landing). Live till: K217328.
 MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default='K217328')
+# Force live till in production if old value is still set (e.g. by env on PythonAnywhere)
+if KOPOKOPO_ENVIRONMENT == 'production' and str(MPESA_TILL_NUMBER).strip() == '5630946':
+    MPESA_TILL_NUMBER = 'K217328'
 
 # KopoKopo webhook callback URL – must be HTTPS and the exact path that receives POST.
 # Production: pakaapp.pythonanywhere.com
