@@ -6,10 +6,10 @@ The following credentials have been configured in `settings.py`:
 
 - **Consumer Key (CLIENT ID)**: R48HC6Rknl7vmW6YfJ2gjf-ayc5medeCpZfLNuW-iuU
 - **Consumer Secret (CLIENT SECRET)**: --jgwMLZQcb4Q-a5MA0xMi-lhhteG0mhoCngO7LUgwY
-- **Shortcode**: 5630946
-- **Passkey (API KEY)**: 5d3fd56fbfbc3dcb3daecbb1420bd2db1269e5c4
-- **Till Number**: 5630946
-- **Environment**: sandbox
+- **Shortcode / Till (production)**: K217328
+- **Passkey (API KEY)**: f09c5e6a1658b952652dca36684dc02951d60c8a (production)
+- **Till Number (display)**: K217328 (live); override with MPESA_TILL_NUMBER env if needed
+- **Environment**: production (default in code); set KOPOKOPO_ENVIRONMENT for sandbox
 
 ## Google Maps API
 

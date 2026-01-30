@@ -8,6 +8,6 @@ def google_maps_api_key(request):
         'OFFICE_LATITUDE': getattr(settings, 'OFFICE_LATITUDE', -1.2921),
         'OFFICE_LONGITUDE': getattr(settings, 'OFFICE_LONGITUDE', 36.8219),
         'OFFICE_ADDRESS': getattr(settings, 'OFFICE_ADDRESS', 'Nairobi CBD, Mfangano Street, Ndaragwa Hse, Mezanine MF22'),
-        'MPESA_TILL_NUMBER': getattr(settings, 'MPESA_TILL_NUMBER', '5630946'),
+        'MPESA_TILL_NUMBER': getattr(settings, 'MPESA_TILL_NUMBER', 'K217328'),
     }
 

@@ -156,8 +156,8 @@ else:
     KOPOKOPO_TILL_NUMBER = config('KOPOKOPO_TILL_NUMBER', default='')
     KOPOKOPO_BASE_URL = config('KOPOKOPO_BASE_URL', default='https://sandbox.kopokopo.com')
 
-# M-Pesa till (display; STK uses KOPOKOPO_TILL_NUMBER)
-MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default=KOPOKOPO_TILL_NUMBER)
+# M-Pesa till for display (customer dashboard, landing). Live till: K217328.
+MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default='K217328')
 
 # KopoKopo webhook callback URL – must be HTTPS and the exact path that receives POST.
 # Production: pakaapp.pythonanywhere.com

@@ -7,13 +7,13 @@
 - No credentials are hardcoded in the codebase
 - Set these in PythonAnywhere's environment variables or `.env` file:
   ```
-  KOPOKOPO_CLIENT_ID=hDJs3s0pVvl8UdY2CV3WBb2ssa3LSTeuwQLtkoxbYLE
-  KOPOKOPO_CLIENT_SECRET=actEBbMQgZdXhG2g6jBfiHrQsB6uy0bWOLPj6L1jRrg
-  KOPOKOPO_API_KEY=5d3fd56fbfbc3dcb3daecbb1420bd2db1269e5c4
+  KOPOKOPO_CLIENT_ID=u0dUZOdtIMX9wv3cpGcaA5KatlVYXdGbGlRL1Ig8rqg
+  KOPOKOPO_CLIENT_SECRET=Ds9RXtvwGUBbwCCOThIzEbZ25Emy1vC4hjeDBzCD8B0
+  KOPOKOPO_API_KEY=f09c5e6a1658b952652dca36684dc02951d60c8a
   KOPOKOPO_BASE_URL=https://api.kopokopo.com
-  KOPOKOPO_TILL_NUMBER=K5630946
+  KOPOKOPO_TILL_NUMBER=K217328
   KOPOKOPO_ENVIRONMENT=production
-  MPESA_TILL_NUMBER=5630946
+  MPESA_TILL_NUMBER=K217328
   ```
 
 ### 2. **Removed Driver from Frontend**
