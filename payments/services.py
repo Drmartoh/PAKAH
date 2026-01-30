@@ -130,7 +130,7 @@ def initiate_stk_push(phone_number, amount, order_tracking_code, callback_url, c
     }
     
     payload = {
-        'payment_channel': 'MPESA',
+        'payment_channel': 'M-PESA STK Push',
         'till_number': settings.KOPOKOPO_TILL_NUMBER,
         'subscriber': subscriber,
         'amount': amount_data,
@@ -193,23 +193,22 @@ def initiate_stk_push(phone_number, amount, order_tracking_code, callback_url, c
 
 def validate_webhook_signature(request_body, signature_header):
     """
-    Validate KopoKopo webhook signature
-    Uses SHA256 HMAC with API key as the secret
+    Validate KopoKopo webhook signature.
+    KopoKopo signs webhooks with SHA256 HMAC of the request body using client_secret as key.
+    See: https://developers.kopokopo.com/guides/webhooks/validating-webhooks.html
     """
-    api_key = settings.KOPOKOPO_API_KEY
-    if not api_key:
-        logger.warning("KopoKopo API key not configured, skipping signature validation")
+    client_secret = settings.KOPOKOPO_CLIENT_SECRET
+    if not client_secret:
+        logger.warning("KopoKopo client secret not configured, skipping signature validation")
         return False
     
     try:
-        # Calculate expected signature
         expected_signature = hmac.new(
-            api_key.encode('utf-8'),
+            client_secret.encode('utf-8'),
             request_body.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()
         
-        # Compare signatures (constant-time comparison to prevent timing attacks)
         return hmac.compare_digest(expected_signature, signature_header)
     except Exception as e:
         logger.error(f"Error validating webhook signature: {e}")

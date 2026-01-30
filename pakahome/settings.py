@@ -129,41 +129,41 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
-# KopoKopo credentials should be set in environment variables in production.
-#KOPOKOPO_CLIENT_ID = config('KOPOKOPO_CLIENT_ID', default='')
-#KOPOKOPO_CLIENT_SECRET = config('KOPOKOPO_CLIENT_SECRET', default='')
-#KOPOKOPO_API_KEY = config('KOPOKOPO_API_KEY', default='')
-#KOPOKOPO_BASE_URL = config('KOPOKOPO_BASE_URL', default='https://api.kopokopo.com')
-#KOPOKOPO_TILL_NUMBER = config('KOPOKOPO_TILL_NUMBER', default='')
-#MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default='5630946')
-#KOPOKOPO_ENVIRONMENT = config('KOPOKOPO_ENVIRONMENT', default='production')
-
+# KopoKopo M-Pesa STK Push – use env vars in production to override these defaults.
 # Set environment: 'production' or 'sandbox'
 KOPOKOPO_ENVIRONMENT = config('KOPOKOPO_ENVIRONMENT', default='production')
 
 if KOPOKOPO_ENVIRONMENT == 'production':
-    # PRODUCTION credentials (hardcoded temporarily for testing)
-    KOPOKOPO_CLIENT_ID = 'hDJs3s0pVvl8UdY2CV3WBb2ssa3LSTeuwQLtkoxbYLE'
-    KOPOKOPO_CLIENT_SECRET = 'actEBbMQgZdXhG2g6jBfiHrQsB6uy0bWOLPj6L1jRrg'
-    KOPOKOPO_API_KEY = '5d3fd56fbfbc3dcb3daecbb1420bd2db1269e5c4'
-    KOPOKOPO_TILL_NUMBER = '5630946'
-    KOPOKOPO_BASE_URL = 'https://api.kopokopo.com'
+    # Production live credentials (override with env vars: KOPOKOPO_CLIENT_ID, etc.)
+    KOPOKOPO_CLIENT_ID = config(
+        'KOPOKOPO_CLIENT_ID',
+        default='u0dUZOdtIMX9wv3cpGcaA5KatlVYXdGbGlRL1Ig8rqg'
+    )
+    KOPOKOPO_CLIENT_SECRET = config(
+        'KOPOKOPO_CLIENT_SECRET',
+        default='Ds9RXtvwGUBbwCCOThIzEbZ25Emy1vC4hjeDBzCD8B0'
+    )
+    KOPOKOPO_API_KEY = config(
+        'KOPOKOPO_API_KEY',
+        default='f09c5e6a1658b952652dca36684dc02951d60c8a'
+    )
+    KOPOKOPO_TILL_NUMBER = config('KOPOKOPO_TILL_NUMBER', default='K217328')
+    KOPOKOPO_BASE_URL = config('KOPOKOPO_BASE_URL', default='https://api.kopokopo.com')
 else:
-    # SANDBOX credentials
-    KOPOKOPO_CLIENT_ID = 'your_sandbox_client_id'
-    KOPOKOPO_CLIENT_SECRET = 'your_sandbox_client_secret'
-    KOPOKOPO_API_KEY = 'your_sandbox_api_key'
-    KOPOKOPO_TILL_NUMBER = 'your_sandbox_till_number'
-    KOPOKOPO_BASE_URL = 'https://sandbox.kopokopo.com'
+    KOPOKOPO_CLIENT_ID = config('KOPOKOPO_CLIENT_ID', default='')
+    KOPOKOPO_CLIENT_SECRET = config('KOPOKOPO_CLIENT_SECRET', default='')
+    KOPOKOPO_API_KEY = config('KOPOKOPO_API_KEY', default='')
+    KOPOKOPO_TILL_NUMBER = config('KOPOKOPO_TILL_NUMBER', default='')
+    KOPOKOPO_BASE_URL = config('KOPOKOPO_BASE_URL', default='https://sandbox.kopokopo.com')
 
-# M-Pesa till number (optional, can be same as KOPOKOPO_TILL_NUMBER)
-MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default='5630946')
+# M-Pesa till (display; STK uses KOPOKOPO_TILL_NUMBER)
+MPESA_TILL_NUMBER = config('MPESA_TILL_NUMBER', default=KOPOKOPO_TILL_NUMBER)
 
-# KopoKopo webhook callback URL (must be HTTPS in production, registered with KopoKopo)
-# Production: pakahomeparceldelivery.website
+# KopoKopo webhook callback URL – must be HTTPS and the exact path that receives POST.
+# Production: pakaapp.pythonanywhere.com
 KOPOKOPO_CALLBACK_URL = config(
     'KOPOKOPO_CALLBACK_URL',
-    default='https://pakahomeparceldelivery.website/api/payments/callback/'
+    default='https://pakaapp.pythonanywhere.com/payments/kopokopo/callback/callback/'
 )
 
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')

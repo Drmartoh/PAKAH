@@ -78,11 +78,11 @@ def initiate_payment(request):
             status='pending'
         )
     
-    # Generate callback URL: production uses configured URL (pakahomeparceldelivery.website), else request host
+    # Callback URL: production uses KOPOKOPO_CALLBACK_URL (e.g. pakaapp.pythonanywhere.com), else request host
     if settings.KOPOKOPO_ENVIRONMENT == 'production':
         callback_url = getattr(
             settings, 'KOPOKOPO_CALLBACK_URL',
-            'https://pakahomeparceldelivery.website/api/payments/callback/'
+            'https://pakaapp.pythonanywhere.com/payments/kopokopo/callback/callback/'
         )
     else:
         # For sandbox, use the request host (works for localhost and ngrok)
