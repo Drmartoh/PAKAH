@@ -657,6 +657,11 @@
             padding: 0.45rem 1rem;
         }
     }
+    
+    /* Google Places autocomplete dropdown must appear above Bootstrap modal (z-index 1055) */
+    .pac-container {
+        z-index: 1060 !important;
+    }
 </style>
 {% endblock %}
 
@@ -1078,11 +1083,12 @@
         infoWindow.open(officeMap, marker);
     }
     
-    // Initialize Google Maps Autocomplete for quick order form
-    function initQuickOrderAutocomplete() {
+    // Initialize Google Maps Autocomplete for quick order form (same behavior as dashboard New Order)
+    // forceInit: when true, skip visibility check (use when modal has just been shown)
+    function initQuickOrderAutocomplete(forceInit) {
         if (!mapsLoaded || typeof google === 'undefined' || !google.maps || !google.maps.places) {
             console.log('Maps not ready, retrying...');
-            setTimeout(initQuickOrderAutocomplete, 100);
+            setTimeout(function() { initQuickOrderAutocomplete(forceInit); }, 100);
             return;
         }
         
@@ -1095,8 +1101,8 @@
             return;
         }
         
-        // Check if inputs are visible (modal is open)
-        if (pickupInput.offsetParent === null || deliveryInput.offsetParent === null) {
+        // When modal is closed, inputs can have offsetParent null; skip init until modal opens (unless forceInit)
+        if (!forceInit && (pickupInput.offsetParent === null || deliveryInput.offsetParent === null)) {
             console.log('Input fields not visible (modal closed), will initialize when modal opens');
             return;
         }
@@ -1231,23 +1237,20 @@
         const orderModal = new bootstrap.Modal(orderModalElement);
         orderModal.show();
         console.log('Opening order form modal...');
-        // Wait for modal animation and input fields to be visible
+        // Wait for modal animation and input fields to be visible, then init autocomplete (force so it runs even if visibility check would fail)
         setTimeout(function() {
             if (mapsLoaded) {
-                initQuickOrderAutocomplete();
+                initQuickOrderAutocomplete(true);
             } else {
                 const checkMaps = setInterval(function() {
                     if (mapsLoaded) {
                         clearInterval(checkMaps);
-                        initQuickOrderAutocomplete();
+                        initQuickOrderAutocomplete(true);
                     }
                 }, 100);
-                // Timeout after 5 seconds
-                setTimeout(function() {
-                    clearInterval(checkMaps);
-                }, 5000);
+                setTimeout(function() { clearInterval(checkMaps); }, 5000);
             }
-        }, 500);
+        }, 400);
         {% else %}
         // Redirect to login for non-authenticated users
         const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
@@ -1315,29 +1318,24 @@
             });
         }
         
-        // Initialize autocomplete when modal opens
+        // Initialize autocomplete when Book Now modal opens (same as dashboard New Order)
         const orderModal = document.getElementById('orderFormModal');
         if (orderModal) {
             orderModal.addEventListener('shown.bs.modal', function() {
                 console.log('Order modal opened, initializing autocomplete...');
-                // Wait for modal animation and input fields to be visible
                 setTimeout(function() {
                     if (mapsLoaded) {
-                        initQuickOrderAutocomplete();
+                        initQuickOrderAutocomplete(true);
                     } else {
-                        // Wait for maps to load
                         const checkMaps = setInterval(function() {
                             if (mapsLoaded) {
                                 clearInterval(checkMaps);
-                                initQuickOrderAutocomplete();
+                                initQuickOrderAutocomplete(true);
                             }
                         }, 100);
-                        // Timeout after 5 seconds
-                        setTimeout(function() {
-                            clearInterval(checkMaps);
-                        }, 5000);
+                        setTimeout(function() { clearInterval(checkMaps); }, 5000);
                     }
-                }, 500);
+                }, 300);
             });
         }
     });
